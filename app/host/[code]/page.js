@@ -10,6 +10,8 @@ import {
   countItems,
   asArray,
   ANSWER_SECS,
+  TIE_DISPLAY_MS,
+  TIE_WINDOW_MS,
 } from "@/lib/questions";
 import {
   startBuzzingPatch,
@@ -18,6 +20,7 @@ import {
   openAnsweringPatch,
   passToNextPatch,
   clearQuestionTimers,
+  resolveBuzzOrTiePatch,
 } from "@/lib/gameFlow";
 import QuestionMedia from "@/components/QuestionMedia";
 import FinalReport from "@/components/FinalReport";
@@ -36,7 +39,7 @@ export default function HostPage({ params }) {
     return () => unsub();
   }, [code]);
 
-  // Host is the clock: first buzz opens answers; answer timeout → next in queue.
+  // Host clock: collect near-simultaneous buzzes → answer or tiebreak; answer timeout → next.
   useEffect(() => {
     if (!state || state === false) return;
     const id = setInterval(async () => {
@@ -46,16 +49,50 @@ export default function HostPage({ params }) {
       if (!live) return;
       const now = Date.now();
 
-      // No buzz timer — first buzz opens answers; later buzzes join the queue.
-      if (live.phase === "buzzing") {
-        const queue = buildBuzzQueue(live.buzzes);
-        if (queue.length > 0) {
+      if (live.phase === "buzzing" || live.phase === "tiebreak") {
+        const allowed = live.phase === "tiebreak" ? asArray(live.tiedTeams) : null;
+        const queue = buildBuzzQueue(live.buzzes).filter((tid) => !allowed || allowed.includes(tid));
+        if (queue.length === 0) return;
+
+        if (!live.buzzResolveAt) {
           advancing.current = true;
           try {
-            await update(ref(db, `rooms/${code}`), openAnsweringPatch(queue, 0));
+            await update(ref(db, `rooms/${code}`), { buzzResolveAt: Date.now() + TIE_WINDOW_MS });
           } finally {
             advancing.current = false;
           }
+          return;
+        }
+
+        if (now < live.buzzResolveAt) return;
+
+        advancing.current = true;
+        try {
+          const snap2 = await get(ref(db, `rooms/${code}`));
+          const live2 = snap2.val();
+          if (!live2 || (live2.phase !== "buzzing" && live2.phase !== "tiebreak")) return;
+          const allowed2 = live2.phase === "tiebreak" ? asArray(live2.tiedTeams) : null;
+          const patch = resolveBuzzOrTiePatch(live2.buzzes, {
+            lateQueue: live2.phase === "buzzing",
+            allowedIds: allowed2,
+          });
+          if (patch) await update(ref(db, `rooms/${code}`), patch);
+        } finally {
+          advancing.current = false;
+        }
+        return;
+      }
+
+      if (live.phase === "tie" && live.tieStartedAt && now >= live.tieStartedAt + TIE_DISPLAY_MS) {
+        advancing.current = true;
+        try {
+          await update(ref(db, `rooms/${code}`), {
+            phase: "tiebreak",
+            buzzes: null,
+            buzzResolveAt: null,
+          });
+        } finally {
+          advancing.current = false;
         }
         return;
       }
@@ -81,9 +118,9 @@ export default function HostPage({ params }) {
           }
         }
       }
-    }, 250);
+    }, 200);
     return () => clearInterval(id);
-  }, [state?.phase, state?.buzzes, state?.answerDeadline, code]);
+  }, [state?.phase, state?.buzzes, state?.buzzResolveAt, state?.answerDeadline, state?.tieStartedAt, code]);
 
   // After round-start splash, auto-open the first question for that round.
   useEffect(() => {
@@ -234,8 +271,8 @@ export default function HostPage({ params }) {
             <h2 className="lobby-title">Share this PIN with teams</h2>
             <div className="code-box pin-box">{code}</div>
             <p className="desc" style={{ textAlign: "center" }}>
-              Teams → <b>Enter PIN to Join</b>. No buzz countdown — first to buzz answers.
-              They get <b>{ANSWER_SECS}s</b>; miss/wrong and the next buzzed team gets a turn.
+              Teams → <b>Enter PIN to Join</b>. No buzz countdown. Near-simultaneous buzzes
+              (2–3 at once) = <b>tie</b> — those teams re-buzz. Winner gets <b>{ANSWER_SECS}s</b> to answer.
             </p>
             <p className="small" style={{ textAlign: "center" }}>
               Players joined: <b>{teamList.length}</b>
@@ -339,9 +376,13 @@ export default function HostPage({ params }) {
           </>
         )}
 
-        {/* Quiz: buzzing / answering / reveal */}
+        {/* Quiz: buzzing / tie / tiebreak / answering / reveal */}
         {liveRound && liveRoundType === "quiz" && item &&
-          (state.phase === "buzzing" || state.phase === "answering" || state.phase === "reveal") && (
+          (state.phase === "buzzing" ||
+            state.phase === "tie" ||
+            state.phase === "tiebreak" ||
+            state.phase === "answering" ||
+            state.phase === "reveal") && (
             <>
               <div className="card">
                 <div className="qnum">
@@ -370,10 +411,40 @@ export default function HostPage({ params }) {
               {state.phase === "buzzing" && (
                 <>
                   <div className="status-banner locked">
-                    Buzz is open (no time limit). First buzz is #1, then #2, #3…
+                    Buzz is open. If 2–3 teams hit at the same time → tie → they re-buzz.
                     {Object.keys(state.buzzes || {}).length > 0 && (
-                      <> · In queue: {Object.keys(state.buzzes).length}</>
+                      <> · Catching buzzes… {Object.keys(state.buzzes).length}</>
                     )}
+                  </div>
+                  {Object.keys(state.buzzes || {}).length > 0 && (
+                    <ul className="buzz-queue">
+                      {buildBuzzQueue(state.buzzes).map((tid, i) => (
+                        <li key={tid}>
+                          <span className="bq-rank">#{i + 1}</span>
+                          <span className="dot" style={{ background: teams[tid]?.color }} />
+                          {teams[tid]?.name || "Team"}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              )}
+
+              {state.phase === "tie" && (
+                <div className="status-banner tie">
+                  Tie!{" "}
+                  {(state.tiedTeams || []).map((tid) => teams[tid]?.name || "Team").join(" & ")}{" "}
+                  buzzed together — tiebreaker starting…
+                </div>
+              )}
+
+              {state.phase === "tiebreak" && (
+                <>
+                  <div className="status-banner tie">
+                    Tiebreaker! Only{" "}
+                    {(state.tiedTeams || []).map((tid) => teams[tid]?.name || "Team").join(" & ")}{" "}
+                    — fastest re-buzz wins
+                    {Object.keys(state.buzzes || {}).length > 0 && " · catching re-buzzes…"}
                   </div>
                   {Object.keys(state.buzzes || {}).length > 0 && (
                     <ul className="buzz-queue">

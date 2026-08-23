@@ -81,11 +81,14 @@ export default function TeamPage({ params }) {
   const item = round?.questions?.[state.idx];
   const isAnswering = state.phase === "answering" && state.buzzedTeam === teamId;
   const buzzes = state.buzzes || {};
+  const tiedTeams = state.tiedTeams || [];
+  const inTiebreak = state.phase === "tiebreak";
+  const eligibleForTiebreak = inTiebreak && tiedTeams.includes(teamId);
   const alreadyBuzzed = buzzes[teamId] != null;
-  // Buzz stays open with no timer; others can still join the queue while someone answers.
   const canBuzz =
     !alreadyBuzzed &&
-    (state.phase === "buzzing" ||
+    ((state.phase === "buzzing") ||
+      eligibleForTiebreak ||
       (state.phase === "answering" && state.buzzedTeam !== teamId));
   const queue = asArray(state.buzzQueue);
   const myQueuePos = queue.indexOf(teamId);
@@ -142,7 +145,11 @@ export default function TeamPage({ params }) {
   const liveQuiz =
     roundType === "quiz" &&
     item &&
-    (state.phase === "buzzing" || state.phase === "answering" || state.phase === "reveal");
+    (state.phase === "buzzing" ||
+      state.phase === "tie" ||
+      state.phase === "tiebreak" ||
+      state.phase === "answering" ||
+      state.phase === "reveal");
 
   return (
     <div className="app">
@@ -160,8 +167,8 @@ export default function TeamPage({ params }) {
           <div className="card funny-card">
             <h2>You&apos;re in! 🎉</h2>
             <p className="desc">
-              Get ready. No buzz countdown — first to buzz answers, with{" "}
-              <b>{ANSWER_SECS}s</b> on the clock.
+              Get ready. First clear buzz answers (<b>{ANSWER_SECS}s</b>). If 2–3 teams
+              buzz at once, it&apos;s a tie — they must re-buzz.
             </p>
           </div>
         )}
@@ -247,16 +254,49 @@ export default function TeamPage({ params }) {
             {state.phase === "buzzing" && (
               <>
                 <div className="status-banner locked">
-                  Buzz is open — no time limit. Smash it when you know it!
+                  Buzz is open! If others hit at the same time → tie → re-buzz.
                 </div>
                 {alreadyBuzzed ? (
                   <div className="status-banner locked">
-                    Buzzed! You&apos;re in the queue — #{buildBuzzQueue(buzzes).indexOf(teamId) + 1}. Hold tight!
+                    Buzzed! Waiting to see if it&apos;s a clean win or a tie…
                   </div>
                 ) : (
                   <button className="buzz-btn pulse" onClick={buzz} disabled={buzzing || !canBuzz}>
                     {buzzing ? "…" : "🔔 BUZZ IN"}
                   </button>
+                )}
+              </>
+            )}
+
+            {state.phase === "tie" && (
+              <div className="status-banner tie">
+                Tie! {tiedTeams.map((tid) => teams[tid]?.name || "Team").join(" & ")} buzzed
+                together — tiebreaker incoming…
+              </div>
+            )}
+
+            {state.phase === "tiebreak" && (
+              <>
+                {eligibleForTiebreak ? (
+                  alreadyBuzzed ? (
+                    <div className="status-banner locked">
+                      Re-buzzed! Waiting for the other tied team(s)…
+                    </div>
+                  ) : (
+                    <>
+                      <div className="status-banner tie">
+                        Tiebreaker! Fastest re-buzz among the tied teams wins.
+                      </div>
+                      <button className="buzz-btn pulse" onClick={buzz} disabled={buzzing || !canBuzz}>
+                        {buzzing ? "…" : "⚡ RE-BUZZ NOW"}
+                      </button>
+                    </>
+                  )
+                ) : (
+                  <div className="status-banner locked">
+                    Tiebreaker between{" "}
+                    {tiedTeams.map((tid) => teams[tid]?.name || "a team").join(" & ")} — hang tight
+                  </div>
                 )}
               </>
             )}
