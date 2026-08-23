@@ -22,6 +22,7 @@ import {
 import QuestionMedia from "@/components/QuestionMedia";
 import FinalReport from "@/components/FinalReport";
 import CountdownTimer from "@/components/CountdownTimer";
+import RoundIntermission from "@/components/RoundIntermission";
 
 export default function HostPage({ params }) {
   const code = params.code;
@@ -84,6 +85,23 @@ export default function HostPage({ params }) {
     return () => clearInterval(id);
   }, [state?.phase, state?.buzzes, state?.answerDeadline, code]);
 
+  // After round-start splash, auto-open the first question for that round.
+  useEffect(() => {
+    if (state?.phase !== "roundStart") return;
+    const idx = state.roundIdx ?? 0;
+    const t = setTimeout(async () => {
+      const snap = await get(ref(db, `rooms/${code}`));
+      const live = snap.val();
+      if (!live || live.phase !== "roundStart") return;
+      const rs = normalizeRounds(live.rounds);
+      const round = rs[idx];
+      const type = round?.type || "quiz";
+      const patch = type === "media" ? startMediaPatch() : startBuzzingPatch();
+      await update(ref(db, `rooms/${code}`), { ...patch, roundIdx: idx, idx: 0, nextRoundIdx: null });
+    }, 2800);
+    return () => clearTimeout(t);
+  }, [state?.phase, state?.roundIdx, code]);
+
   if (state === null) {
     return (
       <div className="app">
@@ -139,7 +157,13 @@ export default function HostPage({ params }) {
     let r = 0;
     while (r < rounds.length && !(rounds[r].questions?.length > 0)) r++;
     if (r >= rounds.length) return;
-    beginItem(r, 0);
+    update(roomRef, {
+      phase: "roundStart",
+      roundIdx: r,
+      idx: 0,
+      nextRoundIdx: null,
+      ...clearQuestionTimers(),
+    });
   }
 
   function nextQuestion() {
@@ -156,16 +180,25 @@ export default function HostPage({ params }) {
       nextRoundIdx++;
     }
     if (nextRoundIdx >= rounds.length) {
-      update(roomRef, { phase: "ended", ...clearQuestionTimers() });
+      update(roomRef, { phase: "ended", nextRoundIdx: null, ...clearQuestionTimers() });
     } else {
       setPendingNextRound(nextRoundIdx);
-      update(roomRef, { phase: "roundEnd", ...clearQuestionTimers() });
+      update(roomRef, {
+        phase: "roundEnd",
+        nextRoundIdx,
+        ...clearQuestionTimers(),
+      });
     }
   }
 
   function startNextRound() {
-    const idx = pendingNextRound ?? state.roundIdx + 1;
-    beginItem(idx, 0);
+    const idx = state.nextRoundIdx ?? pendingNextRound ?? state.roundIdx + 1;
+    update(roomRef, {
+      phase: "roundStart",
+      roundIdx: idx,
+      idx: 0,
+      ...clearQuestionTimers(),
+    });
     setPendingNextRound(null);
   }
 
@@ -251,9 +284,28 @@ export default function HostPage({ params }) {
 
         {state.phase === "roundEnd" && (
           <div className="card funny-card">
-            <h2>🏁 {rounds[state.roundIdx]?.name} complete!</h2>
-            <p className="desc">Next up: {rounds[pendingNextRound ?? state.roundIdx + 1]?.name}</p>
-            <button className="btn primary" onClick={startNextRound}>▶ Next round, let&apos;s go</button>
+            <RoundIntermission
+              mode="complete"
+              roundName={rounds[state.roundIdx]?.name}
+              nextRoundName={rounds[state.nextRoundIdx ?? pendingNextRound ?? state.roundIdx + 1]?.name}
+              scores={state.scores}
+              teams={teams}
+            >
+              <button className="btn primary" style={{ width: "100%", marginTop: 14 }} onClick={startNextRound}>
+                ▶ Start next round
+              </button>
+            </RoundIntermission>
+          </div>
+        )}
+
+        {state.phase === "roundStart" && (
+          <div className="card funny-card">
+            <RoundIntermission
+              mode="start"
+              roundName={rounds[state.roundIdx]?.name}
+              scores={state.scores}
+              teams={teams}
+            />
           </div>
         )}
 

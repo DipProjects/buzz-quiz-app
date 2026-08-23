@@ -14,6 +14,7 @@ import { buildBuzzQueue, openAnsweringPatch } from "@/lib/gameFlow";
 import QuestionMedia from "@/components/QuestionMedia";
 import FinalReport from "@/components/FinalReport";
 import CountdownTimer from "@/components/CountdownTimer";
+import RoundIntermission from "@/components/RoundIntermission";
 
 export default function TeamPage({ params }) {
   const code = params.code;
@@ -166,9 +167,31 @@ export default function TeamPage({ params }) {
         )}
 
         {state.phase === "roundEnd" && (
-          <div className="card">
-            <h2>🏁 {round?.name} done!</h2>
-            <p className="desc">Waiting for the host to start the next round…</p>
+          <div className="card funny-card">
+            <RoundIntermission
+              mode="complete"
+              roundName={round?.name}
+              nextRoundName={rounds[state.nextRoundIdx]?.name}
+              scores={scores}
+              teams={teams}
+              highlightTeamId={teamId}
+            >
+              <p className="small" style={{ textAlign: "center", marginTop: 12, marginBottom: 0 }}>
+                Waiting for the host to start the next round…
+              </p>
+            </RoundIntermission>
+          </div>
+        )}
+
+        {state.phase === "roundStart" && (
+          <div className="card funny-card">
+            <RoundIntermission
+              mode="start"
+              roundName={rounds[state.roundIdx]?.name}
+              scores={scores}
+              teams={teams}
+              highlightTeamId={teamId}
+            />
           </div>
         )}
 
