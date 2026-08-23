@@ -80,8 +80,8 @@ function HomeInner() {
           <div className="card kahoot-home">
             <h2>Play or Host</h2>
             <p className="desc">
-              Save quizzes, then host with a PIN. First buzz wins the floor.
-              Same-time? Lightning re-buzz for those teams only. One wrong = out.
+              Save quizzes, then host with a PIN. Same-time buzz → re-buzz those teams. Two together
+              → first answers, second gets backup if wrong.
             </p>
             <div className="role-grid">
               <Link href="/library" className="role-btn host" style={{ textDecoration: "none", textAlign: "center" }}>

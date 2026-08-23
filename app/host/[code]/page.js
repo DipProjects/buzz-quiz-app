@@ -19,12 +19,14 @@ import {
   clearQuestionTimers,
   resolveBuzzOrTiePatch,
   reopenBuzzPatch,
-  reopenBuzzAfterFailPatch,
+  failAnswerPatch,
+  asLineup,
 } from "@/lib/gameFlow";
 import QuestionMedia from "@/components/QuestionMedia";
 import FinalReport from "@/components/FinalReport";
 import CountdownTimer from "@/components/CountdownTimer";
 import RoundIntermission from "@/components/RoundIntermission";
+import AnswerLineup from "@/components/AnswerLineup";
 
 export default function HostPage({ params }) {
   const code = params.code;
@@ -81,7 +83,11 @@ export default function HostPage({ params }) {
             if (allowed2 && !allowed2.includes(tid)) return;
             filteredBuzzes[tid] = ts;
           });
-          const patch = resolveBuzzOrTiePatch(filteredBuzzes, { allowedIds: allowed2 });
+          const patch = resolveBuzzOrTiePatch(filteredBuzzes, {
+            phase: live2.phase,
+            allowedIds: allowed2,
+            prevTiedTeams: asArray(live2.tiedTeams),
+          });
           if (patch) {
             await update(ref(db, `rooms/${code}`), {
               ...patch,
@@ -101,8 +107,7 @@ export default function HostPage({ params }) {
           const live2 = snap2.val();
           if (!live2 || live2.phase !== "answering") return;
           await update(ref(db, `rooms/${code}`), {
-            ...reopenBuzzAfterFailPatch(live2.buzzedTeam, live2.eliminatedTeams),
-            lastResult: "timeout",
+            ...failAnswerPatch({ ...live2, lastResult: "timeout" }, live2.buzzedTeam),
             selectedOption: null,
           });
         } finally {
@@ -272,8 +277,8 @@ export default function HostPage({ params }) {
             <h2 className="lobby-title">Share this PIN</h2>
             <div className="code-box pin-box">{code}</div>
             <p className="desc" style={{ textAlign: "center" }}>
-              Teams join with this PIN. Same-time buzz → lightning re-buzz for those teams only.
-              One wrong answer = out for that question.
+              Same-time buzz → those teams re-buzz. Two re-buzz together → 1st answers, 2nd gets
+              backup if wrong. Not a full queue.
             </p>
             <p className="small" style={{ textAlign: "center" }}>
               Players joined: <b>{teamList.length}</b>
@@ -448,9 +453,13 @@ export default function HostPage({ params }) {
               {state.phase === "tiebreak" && (
                 <div className="host-buzz-panel tie-panel">
                   <div className="status-banner tie thunder">
-                    Lightning re-buzz —{" "}
-                    {(state.tiedTeams || []).map((tid) => teams[tid]?.name || "Team").join(" vs ")}
+                    Re-buzz round —{" "}
+                    {(state.tiedTeams || []).map((tid) => teams[tid]?.name || "Team").join(" · ")}
                   </div>
+                  <p className="small tie-rules">
+                    3+ buzz together → tie again · 2 together → 1st answers, 2nd backup · 1 alone →
+                    answers
+                  </p>
                   {buzzHits.length > 0 && (
                     <ul className="buzz-hits">
                       {buzzHits.map((tid) => (
@@ -471,6 +480,13 @@ export default function HostPage({ params }) {
                     deadline={state.answerDeadline}
                     label={`Answer clock · ${ANSWER_SECS}s`}
                   />
+                  {asLineup(state.answerLineup).length > 1 && (
+                    <AnswerLineup
+                      lineup={state.answerLineup}
+                      slot={state.answerSlot ?? 0}
+                      teams={teams}
+                    />
+                  )}
                   <div
                     className="status-banner locked"
                     style={{
@@ -478,7 +494,11 @@ export default function HostPage({ params }) {
                       color: teams[state.buzzedTeam]?.color,
                     }}
                   >
-                    {teams[state.buzzedTeam]?.name || "Team"} has the floor — one try
+                    {teams[state.buzzedTeam]?.name || "Team"} answering
+                    {asLineup(state.answerLineup).length > 1 &&
+                    (state.answerSlot ?? 0) + 1 < asLineup(state.answerLineup).length
+                      ? ` · backup: ${teams[asLineup(state.answerLineup)[(state.answerSlot ?? 0) + 1]]?.name || "next"}`
+                      : ""}
                   </div>
                   <div className="btn-row">
                     <button className="btn ghost" onClick={reopenBuzz}>
@@ -502,10 +522,10 @@ export default function HostPage({ params }) {
                     <>{teams[state.buzzedTeam]?.name || "Team"} — correct! +{POINTS_CORRECT}</>
                   )}
                   {state.lastResult === "wrong" && (
-                    <>Wrong ({POINTS_WRONG}) — that team is out; floor open for others</>
+                    <>Wrong ({POINTS_WRONG}) — backup turn or re-buzz for tied teams</>
                   )}
                   {state.lastResult === "timeout" && (
-                    <>Timed out — that team is out; floor open for others</>
+                    <>Timed out — backup turn or re-buzz for tied teams</>
                   )}
                   {state.lastResult === "nobody" && <>Nobody buzzed.</>}
                 </div>

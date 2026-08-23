@@ -9,11 +9,12 @@ import {
   normalizeRounds,
   ANSWER_SECS,
 } from "@/lib/questions";
-import { reopenBuzzAfterFailPatch } from "@/lib/gameFlow";
+import { failAnswerPatch, asLineup } from "@/lib/gameFlow";
 import QuestionMedia from "@/components/QuestionMedia";
 import FinalReport from "@/components/FinalReport";
 import CountdownTimer from "@/components/CountdownTimer";
 import RoundIntermission from "@/components/RoundIntermission";
+import AnswerLineup from "@/components/AnswerLineup";
 
 export default function TeamPage({ params }) {
   const code = params.code;
@@ -41,7 +42,7 @@ export default function TeamPage({ params }) {
 
   useEffect(() => {
     selecting.current = false;
-  }, [state?.phase, state?.buzzedTeam, state?.idx]);
+  }, [state?.phase, state?.buzzedTeam, state?.idx, state?.answerSlot]);
 
   if (!ready || (ready && teamId && !state)) {
     return (
@@ -140,11 +141,9 @@ export default function TeamPage({ params }) {
         return;
       }
 
-      // Wrong once → out for this question (cannot buzz/answer again).
+      // Wrong → backup from same-time pair, or re-buzz tied pool.
       await update(ref(db, `rooms/${code}`), {
-        ...reopenBuzzAfterFailPatch(teamId, live.eliminatedTeams),
-        selectedOption: i,
-        lastResult: "wrong",
+        ...failAnswerPatch({ ...live, lastResult: "wrong", selectedOption: i }, teamId),
       });
     } finally {
       // Keep selecting true until phase flips so rapid taps can't slip through.
@@ -188,8 +187,8 @@ export default function TeamPage({ params }) {
           <div className="card funny-card stage-card">
             <h2>You&apos;re in!</h2>
             <p className="desc">
-              Wait for the host. Hit buzz first to answer. Same-time? Only those teams get a
-              lightning re-buzz.
+              Wait for the host. Same-time buzz → those teams re-buzz. Two buzz together?
+              First answers; if wrong, the other from that pair gets a turn.
             </p>
           </div>
         )}
@@ -303,12 +302,15 @@ export default function TeamPage({ params }) {
 
             {state.phase === "tiebreak" && (
               <div className="buzz-arena tie-arena">
+                <div className="status-banner tie">
+                  Tie group: {tiedTeams.map((tid) => teams[tid]?.name || "Team").join(" · ")}
+                </div>
                 {eligibleForTiebreak ? (
                   alreadyBuzzed ? (
-                    <div className="status-banner locked">Re-buzz in — waiting…</div>
+                    <div className="status-banner locked">Re-buzz locked — resolving…</div>
                   ) : (
                     <>
-                      <p className="buzz-hint hot">Lightning round — only tied teams</p>
+                      <p className="buzz-hint hot">Re-buzz now — only tied teams</p>
                       <button
                         className="buzz-pad pulse rebuzz"
                         onClick={buzz}
@@ -323,9 +325,9 @@ export default function TeamPage({ params }) {
                   )
                 ) : (
                   <div className="status-banner locked">
-                    Showdown:{" "}
+                    Showdown between{" "}
                     {tiedTeams.map((tid) => teams[tid]?.name || "Team").join(" vs ")} — you&apos;re
-                    spectating
+                    watching
                   </div>
                 )}
               </div>
@@ -337,9 +339,17 @@ export default function TeamPage({ params }) {
                   deadline={state.answerDeadline}
                   label={`Answer · ${ANSWER_SECS}s`}
                 />
+                {asLineup(state.answerLineup).length > 1 && (
+                  <AnswerLineup
+                    lineup={state.answerLineup}
+                    slot={state.answerSlot ?? 0}
+                    teams={teams}
+                  />
+                )}
                 {isAnswering ? (
                   <div className="status-banner correct answer-you">
-                    Your shot — tap one answer once
+                    Your turn — pick one answer
+                    {(state.answerSlot ?? 0) > 0 ? " (backup turn)" : ""}
                   </div>
                 ) : (
                   <div
@@ -350,6 +360,10 @@ export default function TeamPage({ params }) {
                     }}
                   >
                     {teams[state.buzzedTeam]?.name || "Team"} is answering
+                    {asLineup(state.answerLineup).length > 1 &&
+                    (state.answerSlot ?? 0) + 1 < asLineup(state.answerLineup).length
+                      ? ` · ${teams[asLineup(state.answerLineup)[(state.answerSlot ?? 0) + 1]]?.name || "Next"} is next`
+                      : ""}
                   </div>
                 )}
               </>
@@ -372,9 +386,9 @@ export default function TeamPage({ params }) {
                     : `${teams[state.buzzedTeam]?.name || "Team"} got it`)}
                 {state.lastResult === "wrong" &&
                   (state.buzzedTeam === teamId
-                    ? `Wrong (${POINTS_WRONG}) — you're out this question`
-                    : `Wrong — floor is open again`)}
-                {state.lastResult === "timeout" && "Timed out — floor open again"}
+                    ? `Wrong (${POINTS_WRONG}) — next team may get a turn or re-buzz`
+                    : `Wrong — re-buzz or next turn`)}
+                {state.lastResult === "timeout" && "Timed out — next turn or re-buzz"}
                 {state.lastResult === "nobody" && "Nobody buzzed."}
               </div>
             )}
