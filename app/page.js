@@ -80,8 +80,8 @@ function HomeInner() {
           <div className="card kahoot-home">
             <h2>Play or Host</h2>
             <p className="desc">
-              Save quizzes in your library, then host with a live PIN. Buzz window is{" "}
-              <b>10s</b>, answer window <b>20s</b> — miss it and the next buzzed team gets a turn.
+              Save quizzes in your library, then host with a live PIN. No buzz countdown —
+              first to buzz answers with <b>15s</b>. Miss it and the next team in queue gets a turn.
             </p>
             <div className="role-grid">
               <Link href="/library" className="role-btn host" style={{ textDecoration: "none", textAlign: "center" }}>

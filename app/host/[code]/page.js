@@ -9,7 +9,6 @@ import {
   normalizeRounds,
   countItems,
   asArray,
-  BUZZ_SECS,
   ANSWER_SECS,
 } from "@/lib/questions";
 import {
@@ -36,7 +35,7 @@ export default function HostPage({ params }) {
     return () => unsub();
   }, [code]);
 
-  // Host is the clock: close buzz window → open answers; answer timeout → next in queue.
+  // Host is the clock: first buzz opens answers; answer timeout → next in queue.
   useEffect(() => {
     if (!state || state === false) return;
     const id = setInterval(async () => {
@@ -46,31 +45,44 @@ export default function HostPage({ params }) {
       if (!live) return;
       const now = Date.now();
 
-      if (live.phase === "buzzing" && live.buzzDeadline && now >= live.buzzDeadline) {
-        advancing.current = true;
-        try {
-          const queue = buildBuzzQueue(live.buzzes);
-          await update(ref(db, `rooms/${code}`), openAnsweringPatch(queue, 0));
-        } finally {
-          advancing.current = false;
+      // No buzz timer — first buzz opens answers; later buzzes join the queue.
+      if (live.phase === "buzzing") {
+        const queue = buildBuzzQueue(live.buzzes);
+        if (queue.length > 0) {
+          advancing.current = true;
+          try {
+            await update(ref(db, `rooms/${code}`), openAnsweringPatch(queue, 0));
+          } finally {
+            advancing.current = false;
+          }
         }
         return;
       }
 
-      if (live.phase === "answering" && live.answerDeadline && now >= live.answerDeadline) {
-        advancing.current = true;
-        try {
-          await update(ref(db, `rooms/${code}`), {
-            ...passToNextPatch(live),
-            lastResult: "timeout",
-          });
-        } finally {
-          advancing.current = false;
+      if (live.phase === "answering") {
+        const full = buildBuzzQueue(live.buzzes);
+        const current = asArray(live.buzzQueue);
+        if (full.length > current.length) {
+          await update(ref(db, `rooms/${code}`), { buzzQueue: full });
+        }
+        if (live.answerDeadline && now >= live.answerDeadline) {
+          advancing.current = true;
+          try {
+            const snap2 = await get(ref(db, `rooms/${code}`));
+            const live2 = snap2.val();
+            if (!live2 || live2.phase !== "answering") return;
+            await update(ref(db, `rooms/${code}`), {
+              ...passToNextPatch({ ...live2, buzzQueue: buildBuzzQueue(live2.buzzes) }),
+              lastResult: "timeout",
+            });
+          } finally {
+            advancing.current = false;
+          }
         }
       }
     }, 250);
     return () => clearInterval(id);
-  }, [state?.phase, state?.buzzDeadline, state?.answerDeadline, code]);
+  }, [state?.phase, state?.buzzes, state?.answerDeadline, code]);
 
   if (state === null) {
     return (
@@ -189,8 +201,8 @@ export default function HostPage({ params }) {
             <h2 className="lobby-title">Share this PIN with teams</h2>
             <div className="code-box pin-box">{code}</div>
             <p className="desc" style={{ textAlign: "center" }}>
-              Teams → <b>Enter PIN to Join</b>. Buzz window <b>{BUZZ_SECS}s</b>, answer{" "}
-              <b>{ANSWER_SECS}s</b> — if they miss, the next buzzed team gets a turn.
+              Teams → <b>Enter PIN to Join</b>. No buzz countdown — first to buzz answers.
+              They get <b>{ANSWER_SECS}s</b>; miss/wrong and the next buzzed team gets a turn.
             </p>
             <p className="small" style={{ textAlign: "center" }}>
               Players joined: <b>{teamList.length}</b>
@@ -305,13 +317,8 @@ export default function HostPage({ params }) {
 
               {state.phase === "buzzing" && (
                 <>
-                  <CountdownTimer
-                    deadline={state.buzzDeadline}
-                    mode="buzz"
-                    label={`Buzz window · ${BUZZ_SECS}s max`}
-                  />
                   <div className="status-banner locked">
-                    Buzz open! First buzz is #1, then #2, #3… building the queue.
+                    Buzz is open (no time limit). First buzz is #1, then #2, #3…
                     {Object.keys(state.buzzes || {}).length > 0 && (
                       <> · In queue: {Object.keys(state.buzzes).length}</>
                     )}
@@ -334,7 +341,6 @@ export default function HostPage({ params }) {
                 <>
                   <CountdownTimer
                     deadline={state.answerDeadline}
-                    mode="answer"
                     label={`Answer clock · ${ANSWER_SECS}s`}
                   />
                   <div

@@ -8,7 +8,6 @@ import {
   POINTS_WRONG,
   normalizeRounds,
   asArray,
-  BUZZ_SECS,
   ANSWER_SECS,
 } from "@/lib/questions";
 import { buildBuzzQueue, openAnsweringPatch } from "@/lib/gameFlow";
@@ -82,7 +81,11 @@ export default function TeamPage({ params }) {
   const isAnswering = state.phase === "answering" && state.buzzedTeam === teamId;
   const buzzes = state.buzzes || {};
   const alreadyBuzzed = buzzes[teamId] != null;
-  const canBuzz = state.phase === "buzzing" && !alreadyBuzzed;
+  // Buzz stays open with no timer; others can still join the queue while someone answers.
+  const canBuzz =
+    !alreadyBuzzed &&
+    (state.phase === "buzzing" ||
+      (state.phase === "answering" && state.buzzedTeam !== teamId));
   const queue = asArray(state.buzzQueue);
   const myQueuePos = queue.indexOf(teamId);
 
@@ -112,9 +115,11 @@ export default function TeamPage({ params }) {
       return;
     }
 
-    // Wrong → next in buzz order (2nd, 3rd…)
-    const nextIdx = (state.queueIndex || 0) + 1;
-    const q = asArray(state.buzzQueue);
+    // Wrong → next in buzz order (include anyone who joined the queue)
+    const q = buildBuzzQueue(state.buzzes);
+    const cur = state.buzzedTeam;
+    const curIdx = Math.max(0, q.indexOf(cur));
+    const nextIdx = curIdx + 1;
     if (nextIdx < q.length) {
       await update(ref(db, `rooms/${code}`), {
         ...openAnsweringPatch(q, nextIdx),
@@ -127,6 +132,8 @@ export default function TeamPage({ params }) {
         selectedOption: i,
         lastResult: "exhausted",
         answerDeadline: null,
+        buzzQueue: q,
+        queueIndex: nextIdx,
       });
     }
   }
@@ -152,8 +159,8 @@ export default function TeamPage({ params }) {
           <div className="card funny-card">
             <h2>You&apos;re in! 🎉</h2>
             <p className="desc">
-              Get ready. When the host starts, you get <b>{BUZZ_SECS}s</b> to buzz +{" "}
-              <b>{ANSWER_SECS}s</b> to answer if you win the buzz.
+              Get ready. No buzz countdown — first to buzz answers, with{" "}
+              <b>{ANSWER_SECS}s</b> on the clock.
             </p>
           </div>
         )}
@@ -216,14 +223,12 @@ export default function TeamPage({ params }) {
 
             {state.phase === "buzzing" && (
               <>
-                <CountdownTimer
-                  deadline={state.buzzDeadline}
-                  mode="buzz"
-                  label="Sabke liye same buzz clock"
-                />
+                <div className="status-banner locked">
+                  Buzz is open — no time limit. Smash it when you know it!
+                </div>
                 {alreadyBuzzed ? (
                   <div className="status-banner locked">
-                    🔔 Buzzed! You&apos;re in the queue — #{buildBuzzQueue(buzzes).indexOf(teamId) + 1}. Hold tight!
+                    Buzzed! You&apos;re in the queue — #{buildBuzzQueue(buzzes).indexOf(teamId) + 1}. Hold tight!
                   </div>
                 ) : (
                   <button className="buzz-btn pulse" onClick={buzz} disabled={buzzing || !canBuzz}>
@@ -237,27 +242,32 @@ export default function TeamPage({ params }) {
               <>
                 <CountdownTimer
                   deadline={state.answerDeadline}
-                  mode="answer"
-                  label="Answer timer (visible to everyone)"
+                  label={`Answer timer · ${ANSWER_SECS}s`}
                 />
                 {isAnswering ? (
                   <div className="status-banner correct">
                     Your turn! Choose an option within {ANSWER_SECS}s — or the next team gets a chance.
                   </div>
-                ) : myQueuePos > (state.queueIndex || 0) ? (
-                  <div className="status-banner locked">
-                    You are #{myQueuePos + 1} in the queue. If they miss, you may get a turn!
-                  </div>
                 ) : (
-                  <div
-                    className="status-banner locked"
-                    style={{
-                      borderColor: teams[state.buzzedTeam]?.color,
-                      color: teams[state.buzzedTeam]?.color,
-                    }}
-                  >
-                    🔒 {teams[state.buzzedTeam]?.name || "Team"} is answering…
-                  </div>
+                  <>
+                    <div
+                      className="status-banner locked"
+                      style={{
+                        borderColor: teams[state.buzzedTeam]?.color,
+                        color: teams[state.buzzedTeam]?.color,
+                      }}
+                    >
+                      {teams[state.buzzedTeam]?.name || "Team"} is answering…
+                      {myQueuePos >= 0
+                        ? ` You are #${myQueuePos + 1} in queue.`
+                        : " Buzz now to join the queue if they miss."}
+                    </div>
+                    {canBuzz && (
+                      <button className="buzz-btn pulse" onClick={buzz} disabled={buzzing}>
+                        {buzzing ? "…" : "🔔 BUZZ IN (join queue)"}
+                      </button>
+                    )}
+                  </>
                 )}
               </>
             )}

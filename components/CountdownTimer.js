@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
-import { funnyBuzzLine, funnyAnswerLine } from "@/lib/gameFlow";
+import { funnyAnswerLine } from "@/lib/gameFlow";
+import { ANSWER_SECS } from "@/lib/questions";
 
-export default function CountdownTimer({ deadline, mode = "buzz", label }) {
+export default function CountdownTimer({ deadline, label }) {
   const [left, setLeft] = useState(0);
 
   useEffect(() => {
@@ -19,23 +20,18 @@ export default function CountdownTimer({ deadline, mode = "buzz", label }) {
   if (!deadline) return null;
 
   const urgent = left <= 3;
-  const line = mode === "buzz" ? funnyBuzzLine(left) : funnyAnswerLine(left);
-  const title = label || (mode === "buzz" ? "Buzz window" : "Answer timer");
+  const title = label || `Answer timer · ${ANSWER_SECS}s`;
 
   return (
-    <div className={`timer-card ${mode} ${urgent ? "urgent" : ""}`}>
+    <div className={`timer-card answer ${urgent ? "urgent" : ""}`}>
       <div className="timer-label">{title}</div>
       <div className="timer-digits" key={left}>
         {left}
         <span className="timer-unit">s</span>
       </div>
-      <div className="timer-fun">{line}</div>
+      <div className="timer-fun">{funnyAnswerLine(left)}</div>
       <div className="timer-bar">
-        <i
-          style={{
-            width: `${Math.min(100, (left / (mode === "buzz" ? 10 : 20)) * 100)}%`,
-          }}
-        />
+        <i style={{ width: `${Math.min(100, (left / ANSWER_SECS) * 100)}%` }} />
       </div>
     </div>
   );
