@@ -15,10 +15,11 @@ import {
 import {
   startBuzzingPatch,
   startMediaPatch,
-  buildBuzzQueue,
+  sortedBuzzIds,
   clearQuestionTimers,
   resolveBuzzOrTiePatch,
   reopenBuzzPatch,
+  reopenBuzzAfterFailPatch,
 } from "@/lib/gameFlow";
 import QuestionMedia from "@/components/QuestionMedia";
 import FinalReport from "@/components/FinalReport";
@@ -37,7 +38,7 @@ export default function HostPage({ params }) {
     return () => unsub();
   }, [code]);
 
-  // Host clock: 0.2s collect → one winner answers, or tied teams re-buzz immediately (no queue).
+  // Host clock: 0.2s collect → one winner answers, or tied teams re-buzz.
   useEffect(() => {
     if (!state || state === false) return;
     const id = setInterval(async () => {
@@ -49,8 +50,11 @@ export default function HostPage({ params }) {
 
       if (live.phase === "buzzing" || live.phase === "tiebreak") {
         const allowed = live.phase === "tiebreak" ? asArray(live.tiedTeams) : null;
-        const queue = buildBuzzQueue(live.buzzes).filter((tid) => !allowed || allowed.includes(tid));
-        if (queue.length === 0) return;
+        const elim = live.eliminatedTeams || {};
+        const hits = sortedBuzzIds(live.buzzes).filter(
+          (tid) => (!allowed || allowed.includes(tid)) && !elim[tid]
+        );
+        if (hits.length === 0) return;
 
         if (!live.buzzResolveAt) {
           advancing.current = true;
@@ -70,8 +74,20 @@ export default function HostPage({ params }) {
           const live2 = snap2.val();
           if (!live2 || (live2.phase !== "buzzing" && live2.phase !== "tiebreak")) return;
           const allowed2 = live2.phase === "tiebreak" ? asArray(live2.tiedTeams) : null;
-          const patch = resolveBuzzOrTiePatch(live2.buzzes, { allowedIds: allowed2 });
-          if (patch) await update(ref(db, `rooms/${code}`), patch);
+          const elim2 = live2.eliminatedTeams || {};
+          const filteredBuzzes = {};
+          Object.entries(live2.buzzes || {}).forEach(([tid, ts]) => {
+            if (elim2[tid]) return;
+            if (allowed2 && !allowed2.includes(tid)) return;
+            filteredBuzzes[tid] = ts;
+          });
+          const patch = resolveBuzzOrTiePatch(filteredBuzzes, { allowedIds: allowed2 });
+          if (patch) {
+            await update(ref(db, `rooms/${code}`), {
+              ...patch,
+              eliminatedTeams: live2.eliminatedTeams || null,
+            });
+          }
         } finally {
           advancing.current = false;
         }
@@ -84,10 +100,10 @@ export default function HostPage({ params }) {
           const snap2 = await get(ref(db, `rooms/${code}`));
           const live2 = snap2.val();
           if (!live2 || live2.phase !== "answering") return;
-          // Timeout — reopen buzz for everyone (no queue handoff).
           await update(ref(db, `rooms/${code}`), {
-            ...reopenBuzzPatch(),
+            ...reopenBuzzAfterFailPatch(live2.buzzedTeam, live2.eliminatedTeams),
             lastResult: "timeout",
+            selectedOption: null,
           });
         } finally {
           advancing.current = false;
@@ -97,7 +113,6 @@ export default function HostPage({ params }) {
     return () => clearInterval(id);
   }, [state?.phase, state?.buzzes, state?.buzzResolveAt, state?.answerDeadline, code]);
 
-  // After round-start splash, auto-open the first question for that round.
   useEffect(() => {
     if (state?.phase !== "roundStart") return;
     const idx = state.roundIdx ?? 0;
@@ -116,7 +131,7 @@ export default function HostPage({ params }) {
 
   if (state === null) {
     return (
-      <div className="app">
+      <div className="app live-stage host-stage">
         <div className="wrap">
           <div className="card funny-card"><h2>Loading game…</h2></div>
         </div>
@@ -126,7 +141,7 @@ export default function HostPage({ params }) {
 
   if (state === false) {
     return (
-      <div className="app">
+      <div className="app live-stage host-stage">
         <div className="wrap">
           <div className="brand">
             <span className="mark">Buzz-In Live</span>
@@ -153,6 +168,17 @@ export default function HostPage({ params }) {
   const liveRoundType = liveRound?.type || "quiz";
   const isLobby = state.phase === "lobby" || state.phase === "setup";
   const item = liveRound?.questions?.[state.idx];
+  const elim = state.eliminatedTeams || {};
+  const buzzHits = sortedBuzzIds(state.buzzes).filter((tid) => !elim[tid]);
+
+  const stageMood =
+    state.phase === "tiebreak"
+      ? "mood-tie"
+      : state.phase === "answering"
+        ? "mood-answer"
+        : state.phase === "buzzing"
+          ? "mood-buzz"
+          : "";
 
   function beginItem(roundIdx, qIdx) {
     const round = rounds[roundIdx];
@@ -232,7 +258,8 @@ export default function HostPage({ params }) {
   }
 
   return (
-    <div className="app">
+    <div className={`app live-stage host-stage ${stageMood}`}>
+      <div className="stage-glow" aria-hidden />
       <div className="wrap">
         <div className="brand">
           <span className="mark">Buzz-In Live</span>
@@ -240,13 +267,13 @@ export default function HostPage({ params }) {
         </div>
 
         {isLobby && (
-          <div className="card lobby-card funny-card">
+          <div className="card lobby-card funny-card stage-card">
             <p className="lobby-kicker">{state.quizTitle || "Live Quiz"}</p>
-            <h2 className="lobby-title">Share this PIN with teams</h2>
+            <h2 className="lobby-title">Share this PIN</h2>
             <div className="code-box pin-box">{code}</div>
             <p className="desc" style={{ textAlign: "center" }}>
-              Teams → <b>Enter PIN to Join</b>. If 2–3 teams buzz at once → only they
-              <b>re-buzz immediately</b>. Winner gets <b>{ANSWER_SECS}s</b>. No answer queue.
+              Teams join with this PIN. Same-time buzz → lightning re-buzz for those teams only.
+              One wrong answer = out for that question.
             </p>
             <p className="small" style={{ textAlign: "center" }}>
               Players joined: <b>{teamList.length}</b>
@@ -284,7 +311,7 @@ export default function HostPage({ params }) {
         )}
 
         {!isLobby && (
-          <div className="card persist-bar">
+          <div className="card persist-bar stage-bar">
             <div className="small" style={{ margin: 0 }}>
               PIN <b>{code}</b>
               {state.quizTitle ? ` · ${state.quizTitle}` : ""}
@@ -294,7 +321,7 @@ export default function HostPage({ params }) {
         )}
 
         {state.phase === "roundEnd" && (
-          <div className="card funny-card">
+          <div className="card funny-card stage-card">
             <RoundIntermission
               mode="complete"
               roundName={rounds[state.roundIdx]?.name}
@@ -310,7 +337,7 @@ export default function HostPage({ params }) {
         )}
 
         {state.phase === "roundStart" && (
-          <div className="card funny-card">
+          <div className="card funny-card stage-card">
             <RoundIntermission
               mode="start"
               roundName={rounds[state.roundIdx]?.name}
@@ -321,8 +348,8 @@ export default function HostPage({ params }) {
         )}
 
         {state.phase === "ended" && (
-          <div className="card funny-card">
-            <h2>🏁 Game over!</h2>
+          <div className="card funny-card stage-card">
+            <h2>Game over</h2>
             <FinalReport scores={state.scores} teams={teams} />
             <div className="btn-row" style={{ marginTop: 14 }}>
               <button className="btn primary" onClick={backToLobby}>Play again (same PIN)</button>
@@ -333,31 +360,29 @@ export default function HostPage({ params }) {
           </div>
         )}
 
-        {/* Media round */}
         {state.phase === "question" && liveRound && liveRoundType === "media" && item && (
           <>
-            <div className="card">
+            <div className="card stage-card">
               <div className="qnum">
-                🎬 {liveRound.name} • Item {state.idx + 1}/{liveRound.questions.length}
+                {liveRound.name} • Item {state.idx + 1}/{liveRound.questions.length}
               </div>
               {item.caption && <div className="qtext">{item.caption}</div>}
               <QuestionMedia img={item.img} video={item.video} media={item.media} />
             </div>
-            <div className="status-banner locked">Playing on every team screen — no buzzer this round</div>
-            <div className="card">
+            <div className="status-banner locked">Playing on every team screen — no buzzer</div>
+            <div className="card stage-card">
               <button className="btn primary" onClick={nextQuestion}>Next ▶</button>
             </div>
           </>
         )}
 
-        {/* Quiz: buzzing / tie / tiebreak / answering / reveal */}
         {liveRound && liveRoundType === "quiz" && item &&
           (state.phase === "buzzing" ||
             state.phase === "tiebreak" ||
             state.phase === "answering" ||
             state.phase === "reveal") && (
             <>
-              <div className="card">
+              <div className="card stage-card q-stage">
                 <div className="qnum">
                   {liveRound.name} • Q{state.idx + 1}/{liveRound.questions.length}
                 </div>
@@ -374,7 +399,8 @@ export default function HostPage({ params }) {
                     }
                     return (
                       <button key={i} className={cls} disabled>
-                        {o}
+                        <span className="opt-letter">{String.fromCharCode(65 + i)}</span>
+                        <span className="opt-text">{o}</span>
                       </button>
                     );
                   })}
@@ -382,47 +408,61 @@ export default function HostPage({ params }) {
               </div>
 
               {state.phase === "buzzing" && (
-                <>
-                  <div className="status-banner locked">
-                    Buzz open. Same-time buzz (2–3) → only those teams re-buzz. No queue.
-                    {Object.keys(state.buzzes || {}).length > 0 && (
-                      <> · Catching buzzes… {Object.keys(state.buzzes).length}</>
-                    )}
+                <div className="host-buzz-panel">
+                  {state.lastResult === "wrong" && (
+                    <div className="status-banner wrong">
+                      Wrong — {teams[state.buzzedTeam]?.name || "that team"} is out this question
+                    </div>
+                  )}
+                  {state.lastResult === "timeout" && (
+                    <div className="status-banner wrong">
+                      Timed out — {teams[state.buzzedTeam]?.name || "that team"} is out this question
+                    </div>
+                  )}
+                  <div className="status-banner locked live-pulse">
+                    Floor open — watching for buzzes
+                    {buzzHits.length > 0 ? ` · ${buzzHits.length} in` : ""}
                   </div>
-                  {Object.keys(state.buzzes || {}).length > 0 && (
-                    <ul className="buzz-queue">
-                      {buildBuzzQueue(state.buzzes).map((tid, i) => (
-                        <li key={tid}>
-                          <span className="bq-rank">#{i + 1}</span>
+                  {buzzHits.length > 0 && (
+                    <ul className="buzz-hits">
+                      {buzzHits.map((tid) => (
+                        <li key={tid} className="buzz-hit-chip pop-in">
                           <span className="dot" style={{ background: teams[tid]?.color }} />
                           {teams[tid]?.name || "Team"}
+                          <span className="hit-tag">IN</span>
                         </li>
                       ))}
                     </ul>
                   )}
-                </>
+                  {Object.keys(elim).length > 0 && (
+                    <p className="small elim-note">
+                      Out this Q:{" "}
+                      {Object.keys(elim)
+                        .map((tid) => teams[tid]?.name || "Team")
+                        .join(", ")}
+                    </p>
+                  )}
+                </div>
               )}
 
               {state.phase === "tiebreak" && (
-                <>
-                  <div className="status-banner tie">
-                    Tie! Only{" "}
-                    {(state.tiedTeams || []).map((tid) => teams[tid]?.name || "Team").join(" & ")}{" "}
-                    — re-buzz now. Everyone else is locked out.
-                    {Object.keys(state.buzzes || {}).length > 0 && " · catching re-buzzes…"}
+                <div className="host-buzz-panel tie-panel">
+                  <div className="status-banner tie thunder">
+                    Lightning re-buzz —{" "}
+                    {(state.tiedTeams || []).map((tid) => teams[tid]?.name || "Team").join(" vs ")}
                   </div>
-                  {Object.keys(state.buzzes || {}).length > 0 && (
-                    <ul className="buzz-queue">
-                      {buildBuzzQueue(state.buzzes).map((tid, i) => (
-                        <li key={tid}>
-                          <span className="bq-rank">#{i + 1}</span>
+                  {buzzHits.length > 0 && (
+                    <ul className="buzz-hits">
+                      {buzzHits.map((tid) => (
+                        <li key={tid} className="buzz-hit-chip pop-in hot">
                           <span className="dot" style={{ background: teams[tid]?.color }} />
                           {teams[tid]?.name || "Team"}
+                          <span className="hit-tag">RE</span>
                         </li>
                       ))}
                     </ul>
                   )}
-                </>
+                </div>
               )}
 
               {state.phase === "answering" && (
@@ -438,11 +478,11 @@ export default function HostPage({ params }) {
                       color: teams[state.buzzedTeam]?.color,
                     }}
                   >
-                    {teams[state.buzzedTeam]?.name || "Team"} — answer now! ({ANSWER_SECS}s)
+                    {teams[state.buzzedTeam]?.name || "Team"} has the floor — one try
                   </div>
                   <div className="btn-row">
                     <button className="btn ghost" onClick={reopenBuzz}>
-                      Reopen buzz
+                      Reset floor (all can buzz)
                     </button>
                   </div>
                 </>
@@ -459,18 +499,20 @@ export default function HostPage({ params }) {
                   }`}
                 >
                   {state.lastResult === "correct" && (
-                    <>{teams[state.buzzedTeam]?.name || "Team"} got it right! +{POINTS_CORRECT}</>
+                    <>{teams[state.buzzedTeam]?.name || "Team"} — correct! +{POINTS_CORRECT}</>
                   )}
                   {state.lastResult === "wrong" && (
-                    <>Wrong! {POINTS_WRONG} pts — buzz is open again for everyone</>
+                    <>Wrong ({POINTS_WRONG}) — that team is out; floor open for others</>
                   )}
-                  {state.lastResult === "timeout" && <>Timed out — buzz reopened for everyone</>}
-                  {state.lastResult === "nobody" && <>Nobody buzzed this round.</>}
+                  {state.lastResult === "timeout" && (
+                    <>Timed out — that team is out; floor open for others</>
+                  )}
+                  {state.lastResult === "nobody" && <>Nobody buzzed.</>}
                 </div>
               )}
 
               {(state.phase === "reveal" || state.phase === "answering") && (
-                <div className="card">
+                <div className="card stage-card">
                   <button className="btn primary" onClick={nextQuestion}>
                     Next Question ▶
                   </button>
@@ -479,16 +521,17 @@ export default function HostPage({ params }) {
             </>
           )}
 
-        <div className="card">
-          <h2>Leaderboard 🏆</h2>
+        <div className="card stage-card">
+          <h2>Leaderboard</h2>
           <ul className="leaderboard">
             {Object.entries(state.scores || {})
               .sort((a, b) => b[1] - a[1])
               .map(([tid, p]) => (
-                <li key={tid}>
+                <li key={tid} className={elim[tid] ? "elim-row" : ""}>
                   <span>
                     <span className="dot" style={{ background: teams[tid]?.color || "#8891a8" }} />
                     {teams[tid]?.name || "Unknown"}
+                    {elim[tid] ? <span className="elim-badge">out</span> : null}
                   </span>
                   <span className={`pts ${p > 0 ? "pos" : p < 0 ? "neg" : ""}`}>
                     {p > 0 ? "+" : ""}

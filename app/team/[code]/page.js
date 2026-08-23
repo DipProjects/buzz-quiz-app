@@ -1,7 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ref, onValue, update, set, serverTimestamp, runTransaction } from "firebase/database";
+import { ref, onValue, update, set, get, serverTimestamp, runTransaction } from "firebase/database";
 import { db } from "@/lib/firebase";
 import {
   POINTS_CORRECT,
@@ -9,7 +9,7 @@ import {
   normalizeRounds,
   ANSWER_SECS,
 } from "@/lib/questions";
-import { reopenBuzzPatch } from "@/lib/gameFlow";
+import { reopenBuzzAfterFailPatch } from "@/lib/gameFlow";
 import QuestionMedia from "@/components/QuestionMedia";
 import FinalReport from "@/components/FinalReport";
 import CountdownTimer from "@/components/CountdownTimer";
@@ -22,6 +22,8 @@ export default function TeamPage({ params }) {
   const [teamName, setTeamName] = useState("");
   const [ready, setReady] = useState(false);
   const [buzzing, setBuzzing] = useState(false);
+  const [buzzFlash, setBuzzFlash] = useState(false);
+  const selecting = useRef(false);
 
   useEffect(() => {
     const id = sessionStorage.getItem(`buzzquiz_teamId_${code}`);
@@ -37,9 +39,13 @@ export default function TeamPage({ params }) {
     return () => unsub();
   }, [code]);
 
+  useEffect(() => {
+    selecting.current = false;
+  }, [state?.phase, state?.buzzedTeam, state?.idx]);
+
   if (!ready || (ready && teamId && !state)) {
     return (
-      <div className="app">
+      <div className="app live-stage team-stage">
         <div className="wrap">
           <div className="card funny-card"><h2>Loading…</h2></div>
         </div>
@@ -49,7 +55,7 @@ export default function TeamPage({ params }) {
 
   if (!teamId || (state && !state.teams?.[teamId])) {
     return (
-      <div className="app">
+      <div className="app live-stage team-stage">
         <div className="wrap">
           <div className="brand"><span className="mark">Buzz-In Live</span></div>
           <div className="card">
@@ -81,47 +87,71 @@ export default function TeamPage({ params }) {
   const isAnswering = state.phase === "answering" && state.buzzedTeam === teamId;
   const buzzes = state.buzzes || {};
   const tiedTeams = state.tiedTeams || [];
+  const eliminated = state.eliminatedTeams || {};
+  const amEliminated = !!eliminated[teamId];
   const inTiebreak = state.phase === "tiebreak";
   const eligibleForTiebreak = inTiebreak && tiedTeams.includes(teamId);
   const alreadyBuzzed = buzzes[teamId] != null;
-  // No queue: buzz only during open buzzing, or re-buzz if you're in the tie.
   const canBuzz =
     !alreadyBuzzed &&
+    !amEliminated &&
     (state.phase === "buzzing" || eligibleForTiebreak);
 
   async function buzz() {
     if (buzzing || !canBuzz) return;
     setBuzzing(true);
+    setBuzzFlash(true);
     try {
       await set(ref(db, `rooms/${code}/buzzes/${teamId}`), serverTimestamp());
     } finally {
       setBuzzing(false);
+      setTimeout(() => setBuzzFlash(false), 450);
     }
   }
 
   async function selectOption(i) {
-    if (!isAnswering || state.phase !== "answering") return;
-    const correct = i === item.correct;
-    const scoreRef = ref(db, `rooms/${code}/scores/${teamId}`);
-    await runTransaction(scoreRef, (cur) => (cur || 0) + (correct ? POINTS_CORRECT : POINTS_WRONG));
+    if (!isAnswering || state.phase !== "answering" || selecting.current) return;
+    if (state.answerLock) return;
+    selecting.current = true;
 
-    if (correct) {
-      await update(ref(db, `rooms/${code}`), {
-        phase: "reveal",
-        selectedOption: i,
-        lastResult: "correct",
-        answerDeadline: null,
+    try {
+      const lockTx = await runTransaction(ref(db, `rooms/${code}/answerLock`), (cur) => {
+        if (cur) return;
+        return teamId;
       });
-      return;
-    }
+      if (!lockTx.committed) return;
 
-    // Wrong — no queue. Reopen buzz for everyone.
-    await update(ref(db, `rooms/${code}`), {
-      ...reopenBuzzPatch(),
-      selectedOption: i,
-      lastResult: "wrong",
-      buzzedTeam: teamId,
-    });
+      const snap = await get(ref(db, `rooms/${code}`));
+      const live = snap.val();
+      if (!live || live.phase !== "answering" || live.buzzedTeam !== teamId) return;
+
+      const correct = i === item.correct;
+      const scoreRef = ref(db, `rooms/${code}/scores/${teamId}`);
+      await runTransaction(scoreRef, (cur) => (cur || 0) + (correct ? POINTS_CORRECT : POINTS_WRONG));
+
+      if (correct) {
+        await update(ref(db, `rooms/${code}`), {
+          phase: "reveal",
+          selectedOption: i,
+          lastResult: "correct",
+          answerDeadline: null,
+          answerLock: teamId,
+        });
+        return;
+      }
+
+      // Wrong once → out for this question (cannot buzz/answer again).
+      await update(ref(db, `rooms/${code}`), {
+        ...reopenBuzzAfterFailPatch(teamId, live.eliminatedTeams),
+        selectedOption: i,
+        lastResult: "wrong",
+      });
+    } finally {
+      // Keep selecting true until phase flips so rapid taps can't slip through.
+      setTimeout(() => {
+        selecting.current = false;
+      }, 800);
+    }
   }
 
   const liveQuiz =
@@ -132,10 +162,20 @@ export default function TeamPage({ params }) {
       state.phase === "answering" ||
       state.phase === "reveal");
 
+  const stageMood =
+    state.phase === "tiebreak"
+      ? "mood-tie"
+      : state.phase === "answering"
+        ? "mood-answer"
+        : state.phase === "buzzing"
+          ? "mood-buzz"
+          : "";
+
   return (
-    <div className="app">
+    <div className={`app live-stage team-stage ${stageMood} ${buzzFlash ? "buzz-hit" : ""}`}>
+      <div className="stage-glow" aria-hidden />
       <div className="wrap">
-        <div className="team-header" style={{ borderColor: myColor }}>
+        <div className="team-header live-header" style={{ borderColor: myColor }}>
           <span className="dot" style={{ background: myColor }} />
           <span className="team-header-name">{teamName || teams[teamId]?.name}</span>
           <span className={`pts ${myScore > 0 ? "pos" : myScore < 0 ? "neg" : ""}`}>
@@ -145,17 +185,17 @@ export default function TeamPage({ params }) {
         </div>
 
         {(state.phase === "setup" || state.phase === "lobby") && (
-          <div className="card funny-card">
-            <h2>You&apos;re in! 🎉</h2>
+          <div className="card funny-card stage-card">
+            <h2>You&apos;re in!</h2>
             <p className="desc">
-              Get ready. Same-time buzz (2–3) → only those teams re-buzz immediately.
-              Winner gets <b>{ANSWER_SECS}s</b>. No queue.
+              Wait for the host. Hit buzz first to answer. Same-time? Only those teams get a
+              lightning re-buzz.
             </p>
           </div>
         )}
 
         {state.phase === "roundEnd" && (
-          <div className="card funny-card">
+          <div className="card funny-card stage-card">
             <RoundIntermission
               mode="complete"
               roundName={round?.name}
@@ -172,7 +212,7 @@ export default function TeamPage({ params }) {
         )}
 
         {state.phase === "roundStart" && (
-          <div className="card funny-card">
+          <div className="card funny-card stage-card">
             <RoundIntermission
               mode="start"
               roundName={rounds[state.roundIdx]?.name}
@@ -184,34 +224,34 @@ export default function TeamPage({ params }) {
         )}
 
         {state.phase === "ended" && (
-          <div className="card">
-            <h2>🏁 Game over!</h2>
+          <div className="card stage-card">
+            <h2>Game over</h2>
             <FinalReport scores={scores} teams={teams} highlightTeamId={teamId} />
           </div>
         )}
 
         {roundType === "media" && item && state.phase === "question" && (
-          <div className="card">
+          <div className="card stage-card">
             <div className="qnum">
-              🎬 {round.name} • Item {state.idx + 1}/{round.questions.length}
+              {round.name} • Item {state.idx + 1}/{round.questions.length}
             </div>
             {item.caption && <div className="qtext">{item.caption}</div>}
             <QuestionMedia img={item.img} video={item.video} media={item.media} />
             <p className="small" style={{ textAlign: "center", marginTop: 8 }}>
-              No buzzer this round — just watch
+              Watch along — no buzzer this round
             </p>
           </div>
         )}
 
         {liveQuiz && (
           <>
-            <div className="card">
+            <div className="card stage-card q-stage">
               <div className="qnum">
                 {round.name} • Q{state.idx + 1}/{round.questions.length}
               </div>
               <div className="qtext">{item.q}</div>
               <QuestionMedia img={item.img} video={item.video} media={item.media} />
-              <div className="options">
+              <div className={`options ${isAnswering ? "options-live" : ""}`}>
                 {item.options.map((o, i) => {
                   let cls = "opt";
                   if (state.phase === "reveal") {
@@ -222,10 +262,11 @@ export default function TeamPage({ params }) {
                     <button
                       key={i}
                       className={cls}
-                      disabled={!isAnswering}
+                      disabled={!isAnswering || !!state.answerLock}
                       onClick={() => selectOption(i)}
                     >
-                      {o}
+                      <span className="opt-letter">{String.fromCharCode(65 + i)}</span>
+                      <span className="opt-text">{o}</span>
                     </button>
                   );
                 })}
@@ -233,58 +274,72 @@ export default function TeamPage({ params }) {
             </div>
 
             {state.phase === "buzzing" && (
-              <>
-                <div className="status-banner locked">
-                  Buzz open! Same-time hit with others → only you re-buzz. No queue.
-                </div>
-                {alreadyBuzzed ? (
-                  <div className="status-banner locked">
-                    Buzzed! Waiting to see if it&apos;s a clean win or a tie…
+              <div className="buzz-arena">
+                {amEliminated ? (
+                  <div className="status-banner wrong">
+                    You already answered wrong — wait for another team
+                  </div>
+                ) : alreadyBuzzed ? (
+                  <div className="status-banner locked buzz-wait">
+                    Buzz locked in — holding for a clean win or tie…
                   </div>
                 ) : (
-                  <button className="buzz-btn pulse" onClick={buzz} disabled={buzzing || !canBuzz}>
-                    {buzzing ? "…" : "🔔 BUZZ IN"}
-                  </button>
+                  <>
+                    <p className="buzz-hint">First clean buzz wins the floor</p>
+                    <button
+                      className="buzz-pad pulse"
+                      onClick={buzz}
+                      disabled={buzzing || !canBuzz}
+                      aria-label="Buzz in"
+                    >
+                      <span className="buzz-pad-ring" />
+                      <span className="buzz-pad-ring delay" />
+                      <span className="buzz-pad-label">{buzzing ? "…" : "BUZZ"}</span>
+                    </button>
+                  </>
                 )}
-              </>
+              </div>
             )}
 
             {state.phase === "tiebreak" && (
-              <>
+              <div className="buzz-arena tie-arena">
                 {eligibleForTiebreak ? (
                   alreadyBuzzed ? (
-                    <div className="status-banner locked">
-                      Re-buzzed! Waiting for the other tied team(s)…
-                    </div>
+                    <div className="status-banner locked">Re-buzz in — waiting…</div>
                   ) : (
                     <>
-                      <div className="status-banner tie">
-                        Tie! Re-buzz now — only tied teams. Others are locked out.
-                      </div>
-                      <button className="buzz-btn pulse" onClick={buzz} disabled={buzzing || !canBuzz}>
-                        {buzzing ? "…" : "⚡ RE-BUZZ NOW"}
+                      <p className="buzz-hint hot">Lightning round — only tied teams</p>
+                      <button
+                        className="buzz-pad pulse rebuzz"
+                        onClick={buzz}
+                        disabled={buzzing || !canBuzz}
+                        aria-label="Re-buzz"
+                      >
+                        <span className="buzz-pad-ring" />
+                        <span className="buzz-pad-ring delay" />
+                        <span className="buzz-pad-label">{buzzing ? "…" : "RE-BUZZ"}</span>
                       </button>
                     </>
                   )
                 ) : (
                   <div className="status-banner locked">
-                    Tiebreak between{" "}
-                    {tiedTeams.map((tid) => teams[tid]?.name || "a team").join(" & ")} — you&apos;re
-                    locked out
+                    Showdown:{" "}
+                    {tiedTeams.map((tid) => teams[tid]?.name || "Team").join(" vs ")} — you&apos;re
+                    spectating
                   </div>
                 )}
-              </>
+              </div>
             )}
 
             {state.phase === "answering" && (
               <>
                 <CountdownTimer
                   deadline={state.answerDeadline}
-                  label={`Answer timer · ${ANSWER_SECS}s`}
+                  label={`Answer · ${ANSWER_SECS}s`}
                 />
                 {isAnswering ? (
-                  <div className="status-banner correct">
-                    Your turn! Choose within {ANSWER_SECS}s.
+                  <div className="status-banner correct answer-you">
+                    Your shot — tap one answer once
                   </div>
                 ) : (
                   <div
@@ -294,7 +349,7 @@ export default function TeamPage({ params }) {
                       color: teams[state.buzzedTeam]?.color,
                     }}
                   >
-                    {teams[state.buzzedTeam]?.name || "Team"} is answering… (no queue)
+                    {teams[state.buzzedTeam]?.name || "Team"} is answering
                   </div>
                 )}
               </>
@@ -313,13 +368,13 @@ export default function TeamPage({ params }) {
               >
                 {state.lastResult === "correct" &&
                   (state.buzzedTeam === teamId
-                    ? `✅ Correct! +${POINTS_CORRECT} pts`
-                    : `✅ ${teams[state.buzzedTeam]?.name || "Team"} got it`)}
+                    ? `Correct! +${POINTS_CORRECT} pts`
+                    : `${teams[state.buzzedTeam]?.name || "Team"} got it`)}
                 {state.lastResult === "wrong" &&
                   (state.buzzedTeam === teamId
-                    ? `❌ Wrong ${POINTS_WRONG} — buzz open again`
-                    : `❌ Wrong — buzz open again for everyone`)}
-                {state.lastResult === "timeout" && "⏰ Timed out — buzz open again"}
+                    ? `Wrong (${POINTS_WRONG}) — you're out this question`
+                    : `Wrong — floor is open again`)}
+                {state.lastResult === "timeout" && "Timed out — floor open again"}
                 {state.lastResult === "nobody" && "Nobody buzzed."}
               </div>
             )}
