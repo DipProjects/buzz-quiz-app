@@ -1,6 +1,12 @@
 [
   {
-    "origin": ["*"],
+    "origin": [
+      "https://buzz-quiz-app.vercel.app",
+      "https://*.vercel.app",
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+      "*"
+    ],
     "method": ["GET", "HEAD", "PUT", "POST", "DELETE", "OPTIONS"],
     "maxAgeSeconds": 3600,
     "responseHeader": [

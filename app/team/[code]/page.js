@@ -42,7 +42,7 @@ export default function TeamPage({ params }) {
     return (
       <div className="app">
         <div className="wrap">
-          <div className="card funny-card"><h2>Loading your destiny…</h2></div>
+          <div className="card funny-card"><h2>Loading…</h2></div>
         </div>
       </div>
     );
@@ -54,9 +54,9 @@ export default function TeamPage({ params }) {
         <div className="wrap">
           <div className="brand"><span className="mark">Buzz-In Live</span></div>
           <div className="card">
-            <h2>Session lost in space 🛸</h2>
+            <h2>Session not found</h2>
             <p className="desc">
-              Is device se room <b>{code}</b> join nahi dikha. Wapas PIN se join karo.
+              This device is not in room <b>{code}</b>. Join again with the PIN.
             </p>
             <Link
               href="/"
@@ -152,8 +152,8 @@ export default function TeamPage({ params }) {
           <div className="card funny-card">
             <h2>You&apos;re in! 🎉</h2>
             <p className="desc">
-              Stretch those buzz-fingers. Host Start dabaye toh <b>{BUZZ_SECS}s</b> buzz +{" "}
-              <b>{ANSWER_SECS}s</b> answer drama shuru.
+              Get ready. When the host starts, you get <b>{BUZZ_SECS}s</b> to buzz +{" "}
+              <b>{ANSWER_SECS}s</b> to answer if you win the buzz.
             </p>
           </div>
         )}
@@ -161,7 +161,7 @@ export default function TeamPage({ params }) {
         {state.phase === "roundEnd" && (
           <div className="card">
             <h2>🏁 {round?.name} done!</h2>
-            <p className="desc">Host next round start karega… hydrate!</p>
+            <p className="desc">Waiting for the host to start the next round…</p>
           </div>
         )}
 
@@ -175,12 +175,12 @@ export default function TeamPage({ params }) {
         {roundType === "media" && item && state.phase === "question" && (
           <div className="card">
             <div className="qnum">
-              🎬 {round.name} • Clip {state.idx + 1}/{round.questions.length}
+              🎬 {round.name} • Item {state.idx + 1}/{round.questions.length}
             </div>
             {item.caption && <div className="qtext">{item.caption}</div>}
             <QuestionMedia img={item.img} video={item.video} media={item.media} />
             <p className="small" style={{ textAlign: "center", marginTop: 8 }}>
-              Cinema mode — no buzz, bas watch 🍿
+              No buzzer this round — just watch
             </p>
           </div>
         )}
@@ -238,15 +238,15 @@ export default function TeamPage({ params }) {
                 <CountdownTimer
                   deadline={state.answerDeadline}
                   mode="answer"
-                  label="Answer timer (sabko dikh raha hai)"
+                  label="Answer timer (visible to everyone)"
                 />
                 {isAnswering ? (
                   <div className="status-banner correct">
-                    🎯 Tumhari baari! {ANSWER_SECS}s mein option choose karo — warna next wale ko milega.
+                    Your turn! Choose an option within {ANSWER_SECS}s — or the next team gets a chance.
                   </div>
                 ) : myQueuePos > (state.queueIndex || 0) ? (
                   <div className="status-banner locked">
-                    👀 Tum queue mein #{myQueuePos + 1} ho. Agar yeh miss kare toh tumhara chance aa sakta hai!
+                    You are #{myQueuePos + 1} in the queue. If they miss, you may get a turn!
                   </div>
                 ) : (
                   <div
@@ -256,7 +256,7 @@ export default function TeamPage({ params }) {
                       color: teams[state.buzzedTeam]?.color,
                     }}
                   >
-                    🔒 {teams[state.buzzedTeam]?.name || "Team"} jawab de raha hai…
+                    🔒 {teams[state.buzzedTeam]?.name || "Team"} is answering…
                   </div>
                 )}
               </>
@@ -275,15 +275,15 @@ export default function TeamPage({ params }) {
               >
                 {state.lastResult === "correct" &&
                   (state.buzzedTeam === teamId
-                    ? `✅ Sahi! +${POINTS_CORRECT} pts — legendary`
+                    ? `✅ Correct! +${POINTS_CORRECT} pts`
                     : `✅ ${teams[state.buzzedTeam]?.name || "Team"} got it`)}
                 {state.lastResult === "wrong" &&
                   (state.buzzedTeam === teamId
-                    ? `❌ Oops ${POINTS_WRONG} — next buzz hero aa raha`
-                    : `❌ Galat — chance aage gaya`)}
+                    ? `❌ Wrong ${POINTS_WRONG} — next in queue`
+                    : `❌ Wrong — chance moves on`)}
                 {state.lastResult === "timeout" && "⏰ Time out — next in line!"}
-                {state.lastResult === "nobody" && "🦗 Koi buzz nahi. Crickets."}
-                {state.lastResult === "exhausted" && "😅 Queue over — koi sahi nahi laaya"}
+                {state.lastResult === "nobody" && "Nobody buzzed."}
+                {state.lastResult === "exhausted" && "Queue over — nobody got it right"}
               </div>
             )}
           </>

@@ -37,7 +37,7 @@ export default function QuizEditorPage({ params }) {
     setHostId(id);
     loadQuiz(id, quizId).then((q) => {
       if (!q) {
-        setError("Quiz nahi mili");
+        setError("Quiz not found");
         setRounds([]);
         return;
       }
@@ -96,7 +96,7 @@ export default function QuizEditorPage({ params }) {
   function addMediaItem() {
     const list = normalizeMediaList(mediaForm);
     if (list.length === 0) {
-      alert("Kam se kam ek image ya video/reel daalo");
+      alert("Add at least one image or video / reel");
       return;
     }
     const newItem = { caption: mediaForm.caption || "", ...packMediaFields(list) };
@@ -133,10 +133,10 @@ export default function QuizEditorPage({ params }) {
 
   function removeRound(i) {
     if (rounds.length <= 1) {
-      alert("Kam se kam ek round chahiye");
+      alert("Keep at least one round");
       return;
     }
-    if (!confirm(`${rounds[i].name} delete?`)) return;
+    if (!confirm(`Remove "${rounds[i].name}"? All items in it will be deleted.`)) return;
     const next = rounds.slice();
     next.splice(i, 1);
     commitRounds(next);
@@ -145,7 +145,7 @@ export default function QuizEditorPage({ params }) {
 
   async function onHostLive() {
     if (countItems(rounds) === 0) {
-      alert("Pehle kam se kam 1 question add karo");
+      alert("Add at least one question or media item first");
       return;
     }
     setBusyHost(true);
@@ -154,7 +154,7 @@ export default function QuizEditorPage({ params }) {
       const pin = await hostLiveGame(hostId, { id: quizId, title, rounds });
       router.push(`/host/${pin}`);
     } catch {
-      alert("Host fail — Firebase check karo");
+      alert("Could not host — check Firebase setup");
       setBusyHost(false);
     }
   }
@@ -214,8 +214,8 @@ export default function QuizEditorPage({ params }) {
             </div>
           </div>
           <p className="persist-hint" style={{ marginTop: 12 }}>
-            Auto-save on hai. Kitne chahe questions / media items add karo — limit nahi.
-            Yeh quiz <b>My Quizzes</b> mein permanent rehti hai; PIN alag live session ke liye banta hai.
+            Auto-save is on. Add as many questions or media items as you want.
+            This quiz stays in <b>My Quizzes</b>; Host creates a separate live PIN.
           </p>
           <div className="btn-row">
             <Link href="/library" className="btn ghost" style={{ textDecoration: "none" }}>← Library</Link>
@@ -231,6 +231,7 @@ export default function QuizEditorPage({ params }) {
             {rounds.map((r, i) => (
               <button
                 key={i}
+                type="button"
                 className={`round-tab ${i === editingRound ? "active" : ""}`}
                 onClick={() => setEditingRound(i)}
               >
@@ -238,34 +239,41 @@ export default function QuizEditorPage({ params }) {
               </button>
             ))}
           </div>
-          <div className="btn-row" style={{ marginTop: 0, marginBottom: 14 }}>
-            <button className="round-tab add" onClick={() => addRound("quiz")}>+ Add Quiz Round</button>
-            <button className="round-tab add" onClick={() => addRound("media")}>+ Add Media Round 🎬</button>
+          <div className="round-actions">
+            <button type="button" className="round-tab add" onClick={() => addRound("quiz")}>+ Add Quiz Round</button>
+            <button type="button" className="round-tab add" onClick={() => addRound("media")}>+ Add Media Round</button>
+            <button
+              type="button"
+              className="round-tab remove"
+              onClick={() => removeRound(editingRound)}
+              disabled={rounds.length <= 1}
+              title={rounds.length <= 1 ? "Keep at least one round" : `Remove ${currentRound?.name}`}
+            >
+              − Remove Round
+            </button>
           </div>
 
           {currentRound && (
             <>
               <label>Round name</label>
-              <div className="btn-row" style={{ marginBottom: 8 }}>
-                <input
-                  type="text"
-                  value={currentRound.name}
-                  onChange={(e) => renameRound(editingRound, e.target.value)}
-                  style={{ marginBottom: 0 }}
-                />
-                <button className="btn ghost" onClick={() => removeRound(editingRound)}>Delete Round</button>
-              </div>
+              <input
+                type="text"
+                value={currentRound.name}
+                onChange={(e) => renameRound(editingRound, e.target.value)}
+              />
 
               {currentRoundType === "media" && (
                 <p className="small media-hint">
-                  🎬 Media round: sirf image / video / Reel — points nahi.
+                  Media round: images, videos, or Reels only — no points.
                 </p>
               )}
 
-              <h2 style={{ fontSize: 15, marginTop: 14 }}>
-                {currentRoundType === "media" ? "Media items" : "Questions"} in {currentRound.name} (
-                {currentRound.questions?.length || 0})
-              </h2>
+              <div className="section-head">
+                <h2 style={{ fontSize: 15, margin: 0 }}>
+                  {currentRoundType === "media" ? "Media items" : "Questions"} in {currentRound.name} (
+                  {currentRound.questions?.length || 0})
+                </h2>
+              </div>
 
               {(currentRound.questions || []).map((q, i) => {
                 const n = normalizeMediaList(q).length;
@@ -279,7 +287,8 @@ export default function QuizEditorPage({ params }) {
                         : q.q + mediaLabel}
                     </span>
                     <button
-                      className="btn ghost"
+                      type="button"
+                      className="btn ghost danger-ghost"
                       style={{ padding: "4px 10px", fontSize: 12 }}
                       onClick={() => removeQuestion(i)}
                     >
@@ -313,9 +322,11 @@ export default function QuizEditorPage({ params }) {
                     roomCode={quizId}
                     onChange={(media) => setForm({ ...form, media })}
                   />
-                  <button className="btn primary" style={{ marginTop: 12, width: "100%" }} onClick={addQuestion}>
-                    + Add Question
-                  </button>
+                  <div className="btn-row" style={{ marginTop: 12 }}>
+                    <button type="button" className="btn primary" style={{ flex: 1 }} onClick={addQuestion}>
+                      + Add Question
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="qedit media-qedit">
@@ -331,9 +342,11 @@ export default function QuizEditorPage({ params }) {
                     roomCode={quizId}
                     onChange={(media) => setMediaForm({ ...mediaForm, media })}
                   />
-                  <button className="btn primary" style={{ marginTop: 12, width: "100%" }} onClick={addMediaItem}>
-                    + Add media item
-                  </button>
+                  <div className="btn-row" style={{ marginTop: 12 }}>
+                    <button type="button" className="btn primary" style={{ flex: 1 }} onClick={addMediaItem}>
+                      + Add Media Item
+                    </button>
+                  </div>
                 </div>
               )}
             </>

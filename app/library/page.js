@@ -30,7 +30,7 @@ export default function LibraryPage() {
       const id = await createQuiz(hostId, "Untitled Quiz");
       router.push(`/quiz/${id}`);
     } catch {
-      setError("Quiz create fail. Firebase rules mein hosts path allow hai?");
+      setError("Could not create quiz. Check Firebase rules allow /hosts.");
       setBusy(false);
     }
   }
@@ -43,20 +43,20 @@ export default function LibraryPage() {
       router.push(`/host/${pin}`);
     } catch (e) {
       if (e?.message === "EMPTY_QUIZ") {
-        setError("Pehle quiz mein kam se kam 1 question / media add karo.");
+        setError("Add at least one question or media item before hosting.");
       } else {
-        setError("Live game start nahi hua. Dobara try karo.");
+        setError("Could not start live game. Please try again.");
       }
       setBusy(false);
     }
   }
 
   async function onDelete(quiz) {
-    if (!confirm(`Delete "${quiz.title}"? Ye permanent hai — live PIN alag cheez hai.`)) return;
+    if (!confirm(`Delete "${quiz.title}"? This cannot be undone. Live PINs are separate.`)) return;
     try {
       await deleteQuiz(hostId, quiz.id);
     } catch {
-      setError("Delete fail");
+      setError("Delete failed");
     }
   }
 
@@ -73,8 +73,7 @@ export default function LibraryPage() {
             <div>
               <h2>My Quizzes</h2>
               <p className="desc" style={{ marginBottom: 0 }}>
-                Kahoot jaisa — quizzes yahan save rehti hain. Host dabao → naya PIN milta hai.
-                Agli baar wapas aao, quizzes yahin milengi.
+                Your quizzes stay saved here. Hit Host for a fresh live PIN anytime.
               </p>
             </div>
             <button className="btn primary" disabled={busy || !hostId} onClick={onCreate}>
@@ -90,8 +89,8 @@ export default function LibraryPage() {
 
         {quizzes && quizzes.length === 0 && (
           <div className="card empty-library">
-            <h2>Abhi koi quiz nahi</h2>
-            <p className="desc">Create Quiz dabao, rounds &amp; questions add karo, phir Host se live khelo.</p>
+            <h2>No quizzes yet</h2>
+            <p className="desc">Create a quiz, add rounds and questions, then Host to go live.</p>
           </div>
         )}
 
@@ -102,7 +101,7 @@ export default function LibraryPage() {
                 <div className="quiz-card-body">
                   <h3>{q.title}</h3>
                   <p className="small">
-                    {q.roundCount} round{q.roundCount === 1 ? "" : "s"} · {q.itemCount} question
+                    {q.roundCount} round{q.roundCount === 1 ? "" : "s"} · {q.itemCount} item
                     {q.itemCount === 1 ? "" : "s"}
                   </p>
                 </div>
@@ -113,8 +112,8 @@ export default function LibraryPage() {
                   <Link href={`/quiz/${q.id}`} className="btn ghost" style={{ textDecoration: "none", textAlign: "center" }}>
                     Edit
                   </Link>
-                  <button className="btn ghost" disabled={busy} onClick={() => onDelete(q)}>
-                    Delete
+                  <button className="btn ghost danger-ghost" disabled={busy} onClick={() => onDelete(q)}>
+                    Remove
                   </button>
                 </div>
               </li>

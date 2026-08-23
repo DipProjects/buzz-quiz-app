@@ -17,7 +17,7 @@ export default function Home() {
 function HomeInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [mode, setMode] = useState(null); // null | "join"
+  const [mode, setMode] = useState(null);
   const [teamName, setTeamName] = useState("");
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
@@ -35,14 +35,14 @@ function HomeInner() {
     setError("");
     const cleanPin = pin.trim().replace(/\s/g, "");
     const cleanName = teamName.trim();
-    if (!cleanName) { setError("Team name daalo"); return; }
-    if (!cleanPin) { setError("Game PIN daalo"); return; }
+    if (!cleanName) { setError("Enter a team name"); return; }
+    if (!cleanPin) { setError("Enter the game PIN"); return; }
 
     setBusy(true);
     try {
       const roomSnap = await get(child(ref(db), `rooms/${cleanPin}`));
       if (!roomSnap.exists()) {
-        setError("Ye PIN nahi mila. Host se PIN check karo.");
+        setError("PIN not found. Check with the host.");
         setBusy(false);
         return;
       }
@@ -63,7 +63,7 @@ function HomeInner() {
 
       router.push(`/team/${cleanPin}`);
     } catch {
-      setError("Join fail. Dobara try karo.");
+      setError("Could not join. Please try again.");
       setBusy(false);
     }
   }
@@ -73,22 +73,22 @@ function HomeInner() {
       <div className="wrap">
         <div className="brand">
           <span className="mark">Buzz-In Live</span>
-          <span className="sub">Kahoot-style Team Quiz</span>
+          <span className="sub">Real-Time Team Quiz</span>
         </div>
 
         {mode === null && (
           <div className="card kahoot-home">
             <h2>Play or Host</h2>
             <p className="desc">
-              Kahoot vibes: pehle quiz save karo, phir Host → PIN. Buzz <b>10s</b>, jawab <b>20s</b>,
-              miss kiya toh #2 phir #3 — drama guaranteed.
+              Save quizzes in your library, then host with a live PIN. Buzz window is{" "}
+              <b>10s</b>, answer window <b>20s</b> — miss it and the next buzzed team gets a turn.
             </p>
             <div className="role-grid">
               <Link href="/library" className="role-btn host" style={{ textDecoration: "none", textAlign: "center" }}>
-                🖥️ Host — My Quizzes
+                Host — My Quizzes
               </Link>
               <button className="role-btn" onClick={() => { setMode("join"); setError(""); }}>
-                🙋 Enter PIN to Join
+                Enter PIN to Join
               </button>
             </div>
           </div>
@@ -97,7 +97,7 @@ function HomeInner() {
         {mode === "join" && (
           <div className="card">
             <h2>Join Game</h2>
-            <p className="desc">Host screen pe dikhne wala 6-digit PIN daalo.</p>
+            <p className="desc">Enter the 6-digit PIN shown on the host screen.</p>
             <label>Game PIN</label>
             <input
               type="text"

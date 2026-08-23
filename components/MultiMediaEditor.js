@@ -29,7 +29,7 @@ export default function MultiMediaEditor({ media = [], onChange, roomCode }) {
         <span className="media-editor-count">{(media || []).length} added</span>
       </div>
       <p className="small media-editor-sub">
-        Kitni bhi images aur videos add kar sakte ho — pehle upload / URL, fir list mein aa jayegi.
+        Add as many images and videos as you want. Prefer pasting a URL if upload fails.
       </p>
 
       {(media || []).length > 0 && (
@@ -41,30 +41,15 @@ export default function MultiMediaEditor({ media = [], onChange, roomCode }) {
                 <span className="media-chip-kind">{m.kind === "image" ? "Image / GIF" : "Video / Reel"}</span>
                 <span className="media-chip-url" title={m.url}>{shortUrl(m.url)}</span>
               </div>
-              <button type="button" className="media-chip-x" onClick={() => removeAt(i)} aria-label="Remove">
-                ×
+              <button type="button" className="btn ghost media-chip-remove" onClick={() => removeAt(i)}>
+                Remove
               </button>
             </li>
           ))}
         </ul>
       )}
 
-      <div className="media-add-grid">
-        <MediaDropzone
-          kind="image"
-          roomCode={roomCode}
-          compact
-          onUploaded={(url) => addItem("image", url)}
-        />
-        <MediaDropzone
-          kind="video"
-          roomCode={roomCode}
-          compact
-          onUploaded={(url) => addItem("video", url)}
-        />
-      </div>
-
-      <div className="media-url-row">
+      <div className="media-url-row media-url-first">
         <div className="media-kind-toggle" role="group" aria-label="URL type">
           <button
             type="button"
@@ -99,9 +84,26 @@ export default function MultiMediaEditor({ media = [], onChange, roomCode }) {
             }}
           />
           <button type="button" className="btn primary media-url-add" onClick={addFromUrl} disabled={!urlDraft.trim()}>
-            Add
+            + Add
           </button>
         </div>
+      </div>
+
+      <p className="small media-or">or upload a file</p>
+
+      <div className="media-add-grid">
+        <MediaDropzone
+          kind="image"
+          roomCode={roomCode}
+          compact
+          onUploaded={(url) => addItem("image", url)}
+        />
+        <MediaDropzone
+          kind="video"
+          roomCode={roomCode}
+          compact
+          onUploaded={(url) => addItem("video", url)}
+        />
       </div>
     </div>
   );

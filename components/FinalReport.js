@@ -10,7 +10,7 @@ export default function FinalReport({ scores, teams, highlightTeamId }) {
   const { winners, runnersUp } = getWinnerRunnerUp(standings);
 
   if (standings.length === 0) {
-    return <p className="small">Koi team join nahi hui.</p>;
+    return <p className="small">No teams joined.</p>;
   }
 
   return (

@@ -121,6 +121,18 @@ label { font-size: 12px; color: var(--dim); display: block; margin-bottom: 4px; 
 .round-tab { border: 1px solid var(--line); background: var(--panel2); color: var(--dim); padding: 8px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; cursor: pointer; }
 .round-tab.active { background: var(--accent); color: #ffffff; border-color: var(--accent); }
 .round-tab.add { border-style: dashed; }
+.round-tab.remove {
+  border-style: solid; border-color: rgba(220,38,38,.35); color: var(--wrong);
+  background: rgba(220,38,38,.08);
+}
+.round-tab.remove:disabled { opacity: .4; cursor: not-allowed; }
+.round-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
+.section-head { margin: 14px 0 8px; }
+.btn.danger-ghost { color: var(--wrong); border-color: rgba(220,38,38,.35); }
+.btn.danger-ghost:hover { background: rgba(220,38,38,.1); }
+.media-chip-remove { padding: 6px 10px !important; font-size: 12px !important; flex-shrink: 0; }
+.media-or { text-align: center; margin: 10px 0 8px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; font-size: 11px !important; }
+.media-url-first { margin-bottom: 4px; }
 .media-hint { background: var(--accent-dim); border: 1px solid var(--accent); border-radius: 8px; padding: 10px; margin-bottom: 10px; }
 
 .qmedia-stack { display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px; }

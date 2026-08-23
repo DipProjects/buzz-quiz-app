@@ -1,13 +1,5 @@
 "use client";
 import { useRef, useState } from "react";
-import { ref as sref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { storage } from "@/lib/firebase";
-
-function safeName(name) {
-  return String(name || "file")
-    .replace(/[^a-zA-Z0-9._-]/g, "_")
-    .slice(0, 80);
-}
 
 export default function MediaDropzone({ kind, onUploaded, roomCode, compact }) {
   const inputRef = useRef(null);
@@ -24,38 +16,27 @@ export default function MediaDropzone({ kind, onUploaded, roomCode, compact }) {
     if (!file) return;
     setErr("");
     setBusy(true);
-    setProgress(0);
+    setProgress(15);
     try {
-      const path = `rooms/${roomCode || "shared"}/${Date.now()}-${safeName(file.name)}`;
-      const fileRef = sref(storage, path);
-      const task = uploadBytesResumable(fileRef, file, {
-        contentType: file.type || undefined,
-      });
+      const body = new FormData();
+      body.append("file", file);
+      body.append("roomCode", roomCode || "shared");
 
-      await new Promise((resolve, reject) => {
-        task.on(
-          "state_changed",
-          (snap) => {
-            if (snap.totalBytes > 0) {
-              setProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100));
-            }
-          },
-          reject,
-          resolve
-        );
-      });
-
-      const url = await getDownloadURL(task.snapshot.ref);
-      onUploaded?.(url);
-    } catch (e) {
-      const msg = String(e?.code || e?.message || e);
-      if (/cors|network|ERR_FAILED|storage\/unauthorized|permission/i.test(msg) || e?.name === "FirebaseError") {
-        setErr(
-          "Upload fail — Firebase Storage CORS / rules set nahi hain. Neeche URL paste karo, ya README mein Storage setup follow karo."
-        );
-      } else {
-        setErr("Upload fail ho gaya. URL manually paste kar sakte ho.");
+      setProgress(40);
+      const res = await fetch("/api/upload", { method: "POST", body });
+      setProgress(85);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || `Upload failed (${res.status})`);
       }
+      if (!data.url) throw new Error("No URL returned");
+      setProgress(100);
+      onUploaded?.(data.url);
+    } catch (e) {
+      setErr(
+        e?.message ||
+          "Upload failed. Paste a URL below instead (YouTube / image link works without Storage)."
+      );
     } finally {
       setBusy(false);
       setProgress(0);

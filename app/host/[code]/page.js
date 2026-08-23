@@ -76,7 +76,7 @@ export default function HostPage({ params }) {
     return (
       <div className="app">
         <div className="wrap">
-          <div className="card funny-card"><h2>Loading the chaos…</h2></div>
+          <div className="card funny-card"><h2>Loading game…</h2></div>
         </div>
       </div>
     );
@@ -91,8 +91,8 @@ export default function HostPage({ params }) {
             <span className="sub">Live Host</span>
           </div>
           <div className="card">
-            <h2>Game udd gaya 💨</h2>
-            <p className="desc">PIN <b>{code}</b> nahi mila. Library se dubara Host karo.</p>
+            <h2>Game not found</h2>
+            <p className="desc">PIN <b>{code}</b> was not found. Host again from My Quizzes.</p>
             <Link href="/library" className="btn primary" style={{ textDecoration: "none" }}>
               ← My Quizzes
             </Link>
@@ -186,15 +186,15 @@ export default function HostPage({ params }) {
         {isLobby && (
           <div className="card lobby-card funny-card">
             <p className="lobby-kicker">{state.quizTitle || "Live Quiz"}</p>
-            <h2 className="lobby-title">PIN dabao. Ego prepare karo.</h2>
+            <h2 className="lobby-title">Share this PIN with teams</h2>
             <div className="code-box pin-box">{code}</div>
             <p className="desc" style={{ textAlign: "center" }}>
               Teams → <b>Enter PIN to Join</b>. Buzz window <b>{BUZZ_SECS}s</b>, answer{" "}
-              <b>{ANSWER_SECS}s</b> — miss kiya toh next buzz-wale ki baari!
+              <b>{ANSWER_SECS}s</b> — if they miss, the next buzzed team gets a turn.
             </p>
             <p className="small" style={{ textAlign: "center" }}>
-              Squad in lobby: <b>{teamList.length}</b>
-              {totalQuestions > 0 ? ` · ${totalQuestions} spicy questions` : ""}
+              Players joined: <b>{teamList.length}</b>
+              {totalQuestions > 0 ? ` · ${totalQuestions} questions ready` : ""}
             </p>
             {teamList.length > 0 && (
               <ul className="lobby-players">
@@ -212,7 +212,7 @@ export default function HostPage({ params }) {
               disabled={totalQuestions === 0}
               onClick={startGame}
             >
-              ▶ Start the mayhem
+              ▶ Start
             </button>
             <div className="btn-row" style={{ justifyContent: "center" }}>
               <Link href="/library" className="btn ghost" style={{ textDecoration: "none" }}>
@@ -239,7 +239,7 @@ export default function HostPage({ params }) {
 
         {state.phase === "roundEnd" && (
           <div className="card funny-card">
-            <h2>🏁 {rounds[state.roundIdx]?.name} wrapped!</h2>
+            <h2>🏁 {rounds[state.roundIdx]?.name} complete!</h2>
             <p className="desc">Next up: {rounds[pendingNextRound ?? state.roundIdx + 1]?.name}</p>
             <button className="btn primary" onClick={startNextRound}>▶ Next round, let&apos;s go</button>
           </div>
@@ -247,7 +247,7 @@ export default function HostPage({ params }) {
 
         {state.phase === "ended" && (
           <div className="card funny-card">
-            <h2>🏁 That&apos;s a wrap, legends</h2>
+            <h2>🏁 Game over!</h2>
             <FinalReport scores={state.scores} teams={teams} />
             <div className="btn-row" style={{ marginTop: 14 }}>
               <button className="btn primary" onClick={backToLobby}>Play again (same PIN)</button>
@@ -263,12 +263,12 @@ export default function HostPage({ params }) {
           <>
             <div className="card">
               <div className="qnum">
-                🎬 {liveRound.name} • Clip {state.idx + 1}/{liveRound.questions.length}
+                🎬 {liveRound.name} • Item {state.idx + 1}/{liveRound.questions.length}
               </div>
               {item.caption && <div className="qtext">{item.caption}</div>}
               <QuestionMedia img={item.img} video={item.video} media={item.media} />
             </div>
-            <div className="status-banner locked">Popcorn mode — no buzz, sirf vibes 🍿</div>
+            <div className="status-banner locked">Playing on every team screen — no buzzer this round</div>
             <div className="card">
               <button className="btn primary" onClick={nextQuestion}>Next ▶</button>
             </div>
@@ -311,9 +311,9 @@ export default function HostPage({ params }) {
                     label={`Buzz window · ${BUZZ_SECS}s max`}
                   />
                   <div className="status-banner locked">
-                    🔔 Buzz open! Jo pehle dabaye #1, phir #2, #3… queue ban rahi hai.
+                    Buzz open! First buzz is #1, then #2, #3… building the queue.
                     {Object.keys(state.buzzes || {}).length > 0 && (
-                      <> · In line: {Object.keys(state.buzzes).length}</>
+                      <> · In queue: {Object.keys(state.buzzes).length}</>
                     )}
                   </div>
                   {Object.keys(state.buzzes || {}).length > 0 && (
@@ -344,10 +344,10 @@ export default function HostPage({ params }) {
                       color: teams[state.buzzedTeam]?.color,
                     }}
                   >
-                    🎯 #{(state.queueIndex || 0) + 1} {teams[state.buzzedTeam]?.name || "Team"} — jawab do!
+                    🎯 #{(state.queueIndex || 0) + 1} {teams[state.buzzedTeam]?.name || "Team"} — answer now!
                     {buzzQueue.length > 1 && (
                       <span className="small" style={{ display: "block", marginTop: 4 }}>
-                        Waiting room:{" "}
+                        Up next:{" "}
                         {buzzQueue
                           .slice((state.queueIndex || 0) + 1)
                           .map((tid) => teams[tid]?.name)
@@ -358,7 +358,7 @@ export default function HostPage({ params }) {
                   </div>
                   <div className="btn-row">
                     <button className="btn ghost" onClick={forcePass}>
-                      Skip → next buzz
+                      Skip → next in queue
                     </button>
                   </div>
                 </>
@@ -375,15 +375,15 @@ export default function HostPage({ params }) {
                   }`}
                 >
                   {state.lastResult === "correct" && (
-                    <>🎉 {teams[state.buzzedTeam]?.name || "Team"} nailed it! +{POINTS_CORRECT}</>
+                    <>🎉 {teams[state.buzzedTeam]?.name || "Team"} got it right! +{POINTS_CORRECT}</>
                   )}
                   {state.lastResult === "wrong" && (
-                    <>💥 Wrong! {POINTS_WRONG} pts — next buzz-wale ki turn aa chuki / khatam</>
+                    <>💥 Wrong! {POINTS_WRONG} pts — turning passes down the queue</>
                   )}
-                  {state.lastResult === "timeout" && <>⏰ Time out — chance aage badh gaya</>}
-                  {state.lastResult === "nobody" && <>🦗 Kisine buzz nahi kiya. Awkward silence.</>}
+                  {state.lastResult === "timeout" && <>Timed out — chance moves to the next team</>}
+                  {state.lastResult === "nobody" && <>Nobody buzzed this round.</>}
                   {state.lastResult === "exhausted" && (
-                    <>😅 Queue khatam — kisi ne sahi nahi maara. Next question?</>
+                    <>Queue finished — nobody got it right. Next question?</>
                   )}
                 </div>
               )}
@@ -416,7 +416,7 @@ export default function HostPage({ params }) {
                 </li>
               ))}
           </ul>
-          {teamList.length === 0 && <p className="small">PIN share karo — empty vibes abhi.</p>}
+          {teamList.length === 0 && <p className="small">Share the PIN — waiting for teams.</p>}
         </div>
       </div>
     </div>
