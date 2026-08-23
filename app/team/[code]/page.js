@@ -7,10 +7,9 @@ import {
   POINTS_CORRECT,
   POINTS_WRONG,
   normalizeRounds,
-  asArray,
   ANSWER_SECS,
 } from "@/lib/questions";
-import { buildBuzzQueue, openAnsweringPatch } from "@/lib/gameFlow";
+import { reopenBuzzPatch } from "@/lib/gameFlow";
 import QuestionMedia from "@/components/QuestionMedia";
 import FinalReport from "@/components/FinalReport";
 import CountdownTimer from "@/components/CountdownTimer";
@@ -85,13 +84,10 @@ export default function TeamPage({ params }) {
   const inTiebreak = state.phase === "tiebreak";
   const eligibleForTiebreak = inTiebreak && tiedTeams.includes(teamId);
   const alreadyBuzzed = buzzes[teamId] != null;
+  // No queue: buzz only during open buzzing, or re-buzz if you're in the tie.
   const canBuzz =
     !alreadyBuzzed &&
-    ((state.phase === "buzzing") ||
-      eligibleForTiebreak ||
-      (state.phase === "answering" && state.buzzedTeam !== teamId));
-  const queue = asArray(state.buzzQueue);
-  const myQueuePos = queue.indexOf(teamId);
+    (state.phase === "buzzing" || eligibleForTiebreak);
 
   async function buzz() {
     if (buzzing || !canBuzz) return;
@@ -119,34 +115,19 @@ export default function TeamPage({ params }) {
       return;
     }
 
-    // Wrong → next in buzz order (include anyone who joined the queue)
-    const q = buildBuzzQueue(state.buzzes);
-    const cur = state.buzzedTeam;
-    const curIdx = Math.max(0, q.indexOf(cur));
-    const nextIdx = curIdx + 1;
-    if (nextIdx < q.length) {
-      await update(ref(db, `rooms/${code}`), {
-        ...openAnsweringPatch(q, nextIdx),
-        selectedOption: i,
-        lastResult: "wrong",
-      });
-    } else {
-      await update(ref(db, `rooms/${code}`), {
-        phase: "reveal",
-        selectedOption: i,
-        lastResult: "exhausted",
-        answerDeadline: null,
-        buzzQueue: q,
-        queueIndex: nextIdx,
-      });
-    }
+    // Wrong — no queue. Reopen buzz for everyone.
+    await update(ref(db, `rooms/${code}`), {
+      ...reopenBuzzPatch(),
+      selectedOption: i,
+      lastResult: "wrong",
+      buzzedTeam: teamId,
+    });
   }
 
   const liveQuiz =
     roundType === "quiz" &&
     item &&
     (state.phase === "buzzing" ||
-      state.phase === "tie" ||
       state.phase === "tiebreak" ||
       state.phase === "answering" ||
       state.phase === "reveal");
@@ -167,8 +148,8 @@ export default function TeamPage({ params }) {
           <div className="card funny-card">
             <h2>You&apos;re in! 🎉</h2>
             <p className="desc">
-              Get ready. First clear buzz answers (<b>{ANSWER_SECS}s</b>). If 2–3 teams
-              buzz at once, it&apos;s a tie — they must re-buzz.
+              Get ready. Same-time buzz (2–3) → only those teams re-buzz immediately.
+              Winner gets <b>{ANSWER_SECS}s</b>. No queue.
             </p>
           </div>
         )}
@@ -254,7 +235,7 @@ export default function TeamPage({ params }) {
             {state.phase === "buzzing" && (
               <>
                 <div className="status-banner locked">
-                  Buzz is open! If others hit at the same time → tie → re-buzz.
+                  Buzz open! Same-time hit with others → only you re-buzz. No queue.
                 </div>
                 {alreadyBuzzed ? (
                   <div className="status-banner locked">
@@ -268,13 +249,6 @@ export default function TeamPage({ params }) {
               </>
             )}
 
-            {state.phase === "tie" && (
-              <div className="status-banner tie">
-                Tie! {tiedTeams.map((tid) => teams[tid]?.name || "Team").join(" & ")} buzzed
-                together — tiebreaker incoming…
-              </div>
-            )}
-
             {state.phase === "tiebreak" && (
               <>
                 {eligibleForTiebreak ? (
@@ -285,7 +259,7 @@ export default function TeamPage({ params }) {
                   ) : (
                     <>
                       <div className="status-banner tie">
-                        Tiebreaker! Fastest re-buzz among the tied teams wins.
+                        Tie! Re-buzz now — only tied teams. Others are locked out.
                       </div>
                       <button className="buzz-btn pulse" onClick={buzz} disabled={buzzing || !canBuzz}>
                         {buzzing ? "…" : "⚡ RE-BUZZ NOW"}
@@ -294,8 +268,9 @@ export default function TeamPage({ params }) {
                   )
                 ) : (
                   <div className="status-banner locked">
-                    Tiebreaker between{" "}
-                    {tiedTeams.map((tid) => teams[tid]?.name || "a team").join(" & ")} — hang tight
+                    Tiebreak between{" "}
+                    {tiedTeams.map((tid) => teams[tid]?.name || "a team").join(" & ")} — you&apos;re
+                    locked out
                   </div>
                 )}
               </>
@@ -309,28 +284,18 @@ export default function TeamPage({ params }) {
                 />
                 {isAnswering ? (
                   <div className="status-banner correct">
-                    Your turn! Choose an option within {ANSWER_SECS}s — or the next team gets a chance.
+                    Your turn! Choose within {ANSWER_SECS}s.
                   </div>
                 ) : (
-                  <>
-                    <div
-                      className="status-banner locked"
-                      style={{
-                        borderColor: teams[state.buzzedTeam]?.color,
-                        color: teams[state.buzzedTeam]?.color,
-                      }}
-                    >
-                      {teams[state.buzzedTeam]?.name || "Team"} is answering…
-                      {myQueuePos >= 0
-                        ? ` You are #${myQueuePos + 1} in queue.`
-                        : " Buzz now to join the queue if they miss."}
-                    </div>
-                    {canBuzz && (
-                      <button className="buzz-btn pulse" onClick={buzz} disabled={buzzing}>
-                        {buzzing ? "…" : "🔔 BUZZ IN (join queue)"}
-                      </button>
-                    )}
-                  </>
+                  <div
+                    className="status-banner locked"
+                    style={{
+                      borderColor: teams[state.buzzedTeam]?.color,
+                      color: teams[state.buzzedTeam]?.color,
+                    }}
+                  >
+                    {teams[state.buzzedTeam]?.name || "Team"} is answering… (no queue)
+                  </div>
                 )}
               </>
             )}
@@ -340,7 +305,7 @@ export default function TeamPage({ params }) {
                 className={`status-banner ${
                   state.lastResult === "correct"
                     ? "correct"
-                    : state.lastResult === "nobody" || state.lastResult === "exhausted"
+                    : state.lastResult === "nobody"
                       ? "tie"
                       : "wrong"
                 }`}
@@ -352,11 +317,10 @@ export default function TeamPage({ params }) {
                     : `✅ ${teams[state.buzzedTeam]?.name || "Team"} got it`)}
                 {state.lastResult === "wrong" &&
                   (state.buzzedTeam === teamId
-                    ? `❌ Wrong ${POINTS_WRONG} — next in queue`
-                    : `❌ Wrong — chance moves on`)}
-                {state.lastResult === "timeout" && "⏰ Time out — next in line!"}
+                    ? `❌ Wrong ${POINTS_WRONG} — buzz open again`
+                    : `❌ Wrong — buzz open again for everyone`)}
+                {state.lastResult === "timeout" && "⏰ Timed out — buzz open again"}
                 {state.lastResult === "nobody" && "Nobody buzzed."}
-                {state.lastResult === "exhausted" && "Queue over — nobody got it right"}
               </div>
             )}
           </>

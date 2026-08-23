@@ -80,8 +80,8 @@ function HomeInner() {
           <div className="card kahoot-home">
             <h2>Play or Host</h2>
             <p className="desc">
-              Save quizzes in your library, then host with a live PIN. Near-simultaneous
-              buzzes become a <b>tie</b> (re-buzz). Winner gets <b>15s</b> to answer.
+              Save quizzes, then host with a PIN. Same-time buzz → only those teams
+              re-buzz. Winner gets <b>15s</b>. No answer queue.
             </p>
             <div className="role-grid">
               <Link href="/library" className="role-btn host" style={{ textDecoration: "none", textAlign: "center" }}>
