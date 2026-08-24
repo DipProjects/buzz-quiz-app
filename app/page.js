@@ -1,10 +1,9 @@
 "use client";
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { ref, set, get, child } from "firebase/database";
 import { db } from "@/lib/firebase";
-import { colorForIndex, makeTeamId, matchAllowedTeamName } from "@/lib/questions";
+import { colorForIndex, makeTeamId, matchAllowedTeamName, ALLOWED_TEAM_NAMES } from "@/lib/questions";
 import Brand from "@/components/Brand";
 import LoadingCard from "@/components/LoadingCard";
 
@@ -31,8 +30,20 @@ function HomeInner() {
   const [mode, setMode] = useState(null);
   const [teamName, setTeamName] = useState("");
   const [pin, setPin] = useState("");
+  const [hostPin, setHostPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  const HOST_PIN = "425401";
+
+  function submitHostPin() {
+    if (hostPin.trim() === HOST_PIN) {
+      sessionStorage.setItem("buzzquiz_host_authed", "1");
+      router.push("/library");
+    } else {
+      setError("Wrong PIN. Only the host has access.");
+    }
+  }
 
   useEffect(() => {
     const q = searchParams.get("code") || searchParams.get("pin");
@@ -69,11 +80,6 @@ function HomeInner() {
       const existingTeams = roomVal.teams || {};
       const existingList = Object.values(existingTeams);
 
-      if (roomVal.maxTeams && existingList.length >= roomVal.maxTeams) {
-        setError(`Room is full (${existingList.length}/${roomVal.maxTeams}). Ask the host to raise the limit.`);
-        setBusy(false);
-        return;
-      }
       const nameTaken = existingList.some(
         (t) => (t?.name || "").trim().toLowerCase() === cleanName.toLowerCase()
       );
@@ -116,12 +122,34 @@ function HomeInner() {
               → first answers, second gets backup if wrong.
             </p>
             <div className="role-grid">
-              <Link href="/library" className="role-btn host" style={{ textDecoration: "none", textAlign: "center" }}>
+              <button className="role-btn host" onClick={() => { setMode("hostAuth"); setError(""); setHostPin(""); }}>
                 Host — My Quizzes
-              </Link>
+              </button>
               <button className="role-btn" onClick={() => { setMode("join"); setError(""); }}>
                 Enter PIN to Join
               </button>
+            </div>
+          </div>
+        )}
+
+        {mode === "hostAuth" && (
+          <div className="card">
+            <h2>Host Access</h2>
+            <p className="desc">Enter the host PIN to manage quizzes and start a game.</p>
+            <label>Host PIN</label>
+            <input
+              type="password"
+              inputMode="numeric"
+              placeholder="Enter host PIN"
+              className="pin-input"
+              value={hostPin}
+              onChange={(e) => setHostPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              onKeyDown={(e) => { if (e.key === "Enter") submitHostPin(); }}
+            />
+            {error && <p className="small" style={{ color: "var(--wrong)" }}>{error}</p>}
+            <div className="btn-row">
+              <button className="btn ghost" onClick={() => { setMode(null); setError(""); }}>← Back</button>
+              <button className="btn primary" onClick={submitHostPin}>Enter</button>
             </div>
           </div>
         )}
@@ -140,14 +168,17 @@ function HomeInner() {
               onChange={(e) => setPin(e.target.value.replace(/[^\dA-Za-z]/g, "").slice(0, 8))}
             />
             <label>Your Team Name</label>
-            <input
-              type="text"
-              placeholder="e.g. Mavricks"
+            <select
               value={teamName}
               onChange={(e) => setTeamName(e.target.value)}
-            />
+            >
+              <option value="" disabled>Select your team</option>
+              {ALLOWED_TEAM_NAMES.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
             <p className="small" style={{ marginTop: -6 }}>
-              Use your registered team name — any spelling case works.
+              Choose your registered team name from the list.
             </p>
             {error && <p className="small" style={{ color: "var(--wrong)" }}>{error}</p>}
             <div className="btn-row">
