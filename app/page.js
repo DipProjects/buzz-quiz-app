@@ -5,10 +5,21 @@ import Link from "next/link";
 import { ref, set, get, child } from "firebase/database";
 import { db } from "@/lib/firebase";
 import { colorForIndex, makeTeamId } from "@/lib/questions";
+import Brand from "@/components/Brand";
+import LoadingCard from "@/components/LoadingCard";
 
 export default function Home() {
   return (
-    <Suspense fallback={<div className="app"><div className="wrap"><div className="card"><h2>Loading...</h2></div></div></div>}>
+    <Suspense
+      fallback={
+        <div className="app">
+          <div className="wrap">
+            <Brand />
+            <div className="card"><LoadingCard /></div>
+          </div>
+        </div>
+      }
+    >
       <HomeInner />
     </Suspense>
   );
@@ -87,10 +98,7 @@ function HomeInner() {
   return (
     <div className="app">
       <div className="wrap">
-        <div className="brand">
-          <span className="mark">Buzz-In Live</span>
-          <span className="sub">Real-Time Team Quiz</span>
-        </div>
+        <Brand tagline="Real-Time Team Quiz" />
 
         {mode === null && (
           <div className="card kahoot-home">
