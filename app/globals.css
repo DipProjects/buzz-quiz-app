@@ -280,7 +280,7 @@ input[type=text]:focus, select:focus, textarea:focus { outline: none; border-col
 .timer-card.answer .timer-ring-progress { stroke: var(--warn); }
 .timer-card.urgent .timer-ring-progress { stroke: var(--wrong); }
 .timer-ring-center {
-  position: absolute; inset: 0; display: flex; align-items: baseline; justify-content: center;
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   animation: popIn .25s cubic-bezier(.2, 1.4, .4, 1) both;
 }
 .timer-digits {
