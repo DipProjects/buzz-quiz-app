@@ -36,6 +36,10 @@ export default function QuizEditorPage({ params }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (sessionStorage.getItem("buzzquiz_host_authed") !== "1") {
+      router.replace("/");
+      return;
+    }
     const id = getHostId();
     setHostId(id);
     loadQuiz(id, quizId).then((q) => {
