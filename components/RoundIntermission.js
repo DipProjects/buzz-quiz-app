@@ -1,5 +1,6 @@
 "use client";
 import { getStandings } from "@/lib/questions";
+import Podium from "@/components/Podium";
 
 export default function RoundIntermission({
   mode, // "complete" | "start"
@@ -40,6 +41,10 @@ export default function RoundIntermission({
       )}
       {!isComplete && (
         <p className="desc round-splash-next">Check the standings — then buzz when the question drops.</p>
+      )}
+
+      {isComplete && (
+        <Podium scores={scores} teams={teams} highlightTeamId={highlightTeamId} />
       )}
 
       <div className="round-scoreboard">
