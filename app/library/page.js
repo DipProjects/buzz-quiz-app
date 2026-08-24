@@ -9,6 +9,8 @@ import {
   deleteQuiz,
   hostLiveGame,
 } from "@/lib/hostLibrary";
+import Brand from "@/components/Brand";
+import LoadingCard from "@/components/LoadingCard";
 
 export default function LibraryPage() {
   const router = useRouter();
@@ -63,10 +65,7 @@ export default function LibraryPage() {
   return (
     <div className="app">
       <div className="wrap">
-        <div className="brand">
-          <span className="mark">Buzz-In Live</span>
-          <span className="sub">My Quizzes</span>
-        </div>
+        <Brand tagline="My Quizzes" />
 
         <div className="card">
           <div className="library-head">
@@ -84,11 +83,12 @@ export default function LibraryPage() {
         </div>
 
         {quizzes === null && (
-          <div className="card"><h2>Loading your quizzes...</h2></div>
+          <div className="card"><LoadingCard label="Loading your quizzes…" /></div>
         )}
 
         {quizzes && quizzes.length === 0 && (
           <div className="card empty-library">
+            <div className="empty-icon" aria-hidden="true">🗂️</div>
             <h2>No quizzes yet</h2>
             <p className="desc">Create a quiz, add rounds and questions, then Host to go live.</p>
           </div>
