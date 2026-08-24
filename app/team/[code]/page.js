@@ -277,6 +277,15 @@ export default function TeamPage({ params }) {
 
             {state.phase === "buzzing" && (
               <div className="buzz-arena">
+                {(state.lastResult === "wrong" || state.lastResult === "timeout") && (
+                  <div className="status-banner wrong">
+                    {state.lastResult === "timeout" ? "Timed out" : "Wrong"} —{" "}
+                    {teams[state.buzzedTeam]?.name || "that team"} is out this question
+                    {state.buzzAgainQuote && (
+                      <div className="buzz-again-quote">{state.buzzAgainQuote}</div>
+                    )}
+                  </div>
+                )}
                 {amEliminated ? (
                   <div className="status-banner wrong">
                     You already answered wrong — wait for another team
