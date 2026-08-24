@@ -180,20 +180,7 @@ export default function QuizEditorPage({ params }) {
     commitRounds(next);
     setEditingRound((prev) => Math.max(0, prev - (i <= prev ? 1 : 0)));
   }
-  //24th aug
-async function buzz() {
-    if (buzzing || !canBuzz) return;
-    if (navigator.vibrate) navigator.vibrate(120); // haptic buzz on supported phones
-    setBuzzing(true);
-    setBuzzFlash(true);
-    try {
-      await set(ref(db, `rooms/${code}/buzzes/${teamId}`), serverTimestamp());
-    } finally {
-      setBuzzing(false);
-      setTimeout(() => setBuzzFlash(false), 450);
-    }
-  }
-  //24th aug
+
   async function onHostLive() {
     if (countItems(rounds) === 0) {
       alert("Add at least one question or media item first");
