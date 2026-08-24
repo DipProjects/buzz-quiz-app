@@ -3,87 +3,39 @@
   --text: #221238; --dim: #6b5e88; --accent: #7c3aed; --accent-dim: rgba(124,58,237,.12);
   --correct: #1f9d4a; --wrong: #e0245e;
   --k-red: #e0245e; --k-blue: #1868d9; --k-yellow: #d99a00; --k-green: #1f9d4a;
-  --font: var(--font-montserrat), 'Montserrat', 'Segoe UI', system-ui, sans-serif;
-  color-scheme: light;
 }
 * { box-sizing: border-box; }
-*, *::before, *::after { -webkit-tap-highlight-color: transparent; }
-html {
-  height: 100%;
-  scroll-behavior: smooth;
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
-}
 body {
-  margin: 0; min-height: 100%;
-  font-family: var(--font);
-  color: var(--text);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  overscroll-behavior-y: none; /* stops the buzzer button from triggering pull-to-refresh */
-  overflow-x: hidden;
-  position: relative;
-}
-/* Fixed backdrop lives on a pseudo-element, not `background-attachment: fixed` on body —
-   that property is unreliable on iOS Safari (it repaints/jumps while scrolling). This
-   version is a true fixed layer behind everything and never repaints. */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
+  margin: 0; font-family: 'Montserrat', 'Segoe UI', system-ui, sans-serif;
   background:
     radial-gradient(1100px 620px at 15% -10%, rgba(255,255,255,.09), transparent 55%),
     linear-gradient(150deg, #3d1685 0%, #6d28d9 55%, #8b3cf0 100%);
+  background-attachment: fixed;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
 }
-::selection { background: var(--accent); color: #fff; }
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,.28); border-radius: 999px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.45); }
-html { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.3) transparent; }
-
-.app {
-  min-height: 100vh;
-  min-height: 100dvh; /* real viewport height — 100vh jumps when mobile browser chrome shows/hides */
-  padding:
-    max(24px, env(safe-area-inset-top))
-    max(16px, env(safe-area-inset-right))
-    max(60px, env(safe-area-inset-bottom))
-    max(16px, env(safe-area-inset-left));
-}
-.wrap { max-width: 760px; margin: 0 auto; width: 100%; }
+.app { min-height: 100vh; padding: 24px 16px 60px; }
+.wrap { max-width: 760px; margin: 0 auto; }
 .brand { display: flex; align-items: baseline; gap: 10px; justify-content: center; margin-bottom: 24px; }
-.brand .mark { font-family: var(--font); font-weight: 900; font-style: normal; font-size: 28px; letter-spacing: -.02em; color: #ffffff; text-shadow: 0 2px 10px rgba(0,0,0,.2); }
+.brand .mark { font-family: 'Montserrat', system-ui, sans-serif; font-weight: 900; font-style: normal; font-size: 28px; letter-spacing: -.02em; color: #ffffff; text-shadow: 0 2px 10px rgba(0,0,0,.2); }
 .brand .sub { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: rgba(255,255,255,.7); font-weight: 700; }
-.card {
-  background: var(--panel); border: none; border-radius: 18px; padding: 22px; margin-bottom: 16px;
-  box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 16px 34px rgba(20,5,50,.24);
-  animation: cardIn .28s cubic-bezier(.2,.8,.2,1) both;
-}
-@keyframes cardIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+.card { background: var(--panel); border: none; border-radius: 18px; padding: 22px; margin-bottom: 16px; box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 16px 34px rgba(20,5,50,.24); }
 h1, h2 { margin: 0 0 4px; font-weight: 800; letter-spacing: -.01em; }
 h2 { font-size: 19px; }
 p.desc { color: var(--dim); font-size: 13px; margin: 0 0 16px; font-weight: 500; line-height: 1.5; }
 .role-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
-.role-btn { border: none; background: var(--k-blue); color: #fff; padding: 18px; border-radius: 14px; font-size: 16px; font-weight: 800; letter-spacing: .01em; cursor: pointer; box-shadow: 0 4px 14px rgba(24,104,217,.4); transition: transform .12s ease, box-shadow .12s ease, filter .12s ease; text-decoration: none; text-align: center; display: block; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+.role-btn { border: none; background: var(--k-blue); color: #fff; padding: 18px; border-radius: 14px; font-size: 16px; font-weight: 800; letter-spacing: .01em; cursor: pointer; box-shadow: 0 4px 14px rgba(24,104,217,.4); transition: transform .12s ease, box-shadow .12s ease; }
 .role-btn:active { transform: translateY(2px); box-shadow: 0 2px 8px rgba(24,104,217,.35); }
 .role-btn.host { background: var(--k-green); box-shadow: 0 4px 14px rgba(31,157,74,.4); }
 .role-btn.host:active { box-shadow: 0 2px 8px rgba(31,157,74,.35); }
 input[type=text], select, textarea {
   width: 100%; background: var(--panel2); border: 1.5px solid var(--line); color: var(--text);
-  border-radius: 12px; padding: 12px 14px; font-size: 16px; font-weight: 600; font-family: inherit; margin-bottom: 8px;
-  transition: border-color .12s ease, box-shadow .12s ease;
-  -webkit-appearance: none; appearance: none;
+  border-radius: 12px; padding: 12px 14px; font-size: 15px; font-weight: 600; font-family: inherit; margin-bottom: 8px;
+  transition: border-color .12s ease;
 }
-/* font-size stays >=16px on purpose — anything smaller makes iOS Safari auto-zoom
-   the page when the field gets focus, which feels very "not-an-app". */
-input[type=text]:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+input[type=text]:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
 label { font-size: 11px; color: var(--dim); display: block; margin-bottom: 5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
-.btn { border: none; padding: 12px 20px; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 13px; text-transform: uppercase; letter-spacing: .03em; box-shadow: 0 3px 10px rgba(0,0,0,.15); transition: transform .12s ease, box-shadow .12s ease, filter .12s ease; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+.btn { border: none; padding: 12px 20px; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 13px; text-transform: uppercase; letter-spacing: .03em; box-shadow: 0 3px 10px rgba(0,0,0,.15); transition: transform .12s ease, box-shadow .12s ease, filter .12s ease; }
 .btn:active:not(:disabled) { transform: translateY(2px); filter: brightness(.97); }
 .btn.primary { background: var(--accent); color: #ffffff; box-shadow: 0 4px 14px rgba(124,58,237,.4); }
 .btn.ghost { background: var(--panel2); color: var(--text); border: 1.5px solid var(--line); box-shadow: none; }
@@ -105,8 +57,7 @@ label { font-size: 11px; color: var(--dim); display: block; margin-bottom: 5px; 
   border: none; color: #fff; padding: 18px 14px; border-radius: 14px; font-size: 15px; font-weight: 800;
   text-align: left; cursor: pointer; display: flex; align-items: center; gap: 10px;
   background: var(--k-blue); box-shadow: 0 6px 0 rgba(0,0,0,.2);
-  transition: transform .1s ease, box-shadow .1s ease, filter .1s ease;
-  touch-action: manipulation; -webkit-user-select: none; user-select: none;
+  transition: transform .1s ease, box-shadow .1s ease;
 }
 .options .opt:nth-child(1) { background: var(--k-red); }
 .options .opt:nth-child(2) { background: var(--k-blue); }
@@ -131,8 +82,7 @@ label { font-size: 11px; color: var(--dim); display: block; margin-bottom: 5px; 
   50% { transform: translateY(-3px); }
 }
 .opt-text { flex: 1; min-width: 0; }
-.buzz-btn { width: 100%; padding: 32px; border-radius: 20px; border: none; cursor: pointer; font-size: 22px; font-weight: 900; letter-spacing: 2px; color: #ffffff; background: linear-gradient(180deg,#a855f7,#7b2ff7); box-shadow: 0 6px 0 #4c0fb8; touch-action: manipulation; -webkit-user-select: none; user-select: none; transition: transform .08s ease, box-shadow .08s ease, filter .1s ease; }
-.buzz-btn:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 #4c0fb8; }
+.buzz-btn { width: 100%; padding: 32px; border-radius: 20px; border: none; cursor: pointer; font-size: 22px; font-weight: 900; letter-spacing: 2px; color: #ffffff; background: linear-gradient(180deg,#a855f7,#7b2ff7); box-shadow: 0 6px 0 #4c0fb8; }
 .buzz-btn:disabled { background: var(--panel2); color: var(--dim); box-shadow: none; cursor: not-allowed; }
 .buzz-btn.pulse { animation: buzzPulse 1s ease-in-out infinite; }
 @keyframes buzzPulse {
@@ -257,7 +207,6 @@ label { font-size: 11px; color: var(--dim); display: block; margin-bottom: 5px; 
     inset 0 2px 6px rgba(255,255,255,.25);
   display: grid; place-items: center;
   transition: transform .1s ease, box-shadow .18s ease, filter .12s ease;
-  touch-action: manipulation; -webkit-user-select: none; user-select: none;
 }
 .buzz-pad:hover:not(:disabled) { filter: brightness(1.05); }
 .buzz-pad:active:not(:disabled) {
@@ -674,71 +623,3 @@ label { font-size: 11px; color: var(--dim); display: block; margin-bottom: 5px; 
 .chip-opt:active:not(:disabled) { transform: scale(.96); }
 .chip-opt.active { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 4px 12px rgba(124,58,237,.35); }
 .chip-opt:disabled { opacity: .35; cursor: not-allowed; }
-
-/* ===================== Desktop pointer & keyboard support =====================
-   Everything above is tuned for touch (:active states). Mouse users get no
-   feedback until they click, and there's no visible focus ring for keyboard
-   nav — both make it feel like a mobile web page pretending to be a site
-   rather than a real app. This adds it back without touching touch devices. */
-@media (hover: hover) and (pointer: fine) {
-  .card:hover { transform: translateY(-2px); box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 20px 38px rgba(20,5,50,.28); }
-  .role-btn:hover { filter: brightness(1.06); transform: translateY(-2px); }
-  .btn:hover:not(:disabled) { transform: translateY(-1px); }
-  .btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
-  .btn.ghost:hover:not(:disabled) { background: var(--line); }
-  .opt:not(:disabled):hover { filter: brightness(1.08); transform: translateY(-2px); }
-  .buzz-pad:not(:disabled):hover { transform: translateY(-2px) scale(1.015); }
-  .chip-opt:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
-  .round-tab:not(.active):hover { border-color: var(--accent); color: var(--accent); }
-  .quiz-card:hover { transform: translateY(-3px); box-shadow: 0 12px 0 rgba(0,0,0,.1), 0 20px 32px rgba(20,5,50,.22); }
-}
-.quiz-card { transition: transform .15s ease, box-shadow .15s ease; }
-.round-tab { transition: border-color .12s ease, color .12s ease, background .12s ease; }
-
-/* Visible only for keyboard navigation — mouse/touch clicks never trigger :focus-visible */
-.btn:focus-visible, .role-btn:focus-visible, .opt:focus-visible, .buzz-pad:focus-visible,
-.buzz-btn:focus-visible, .chip-opt:focus-visible, .round-tab:focus-visible, a:focus-visible {
-  outline: 3px solid #ffffff;
-  outline-offset: 2px;
-  box-shadow: 0 0 0 5px var(--accent);
-}
-input:focus-visible, select:focus-visible, textarea:focus-visible {
-  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim);
-}
-
-/* Respect OS-level "reduce motion" instead of forcing pulses/shakes/wiggles on everyone */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: .001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: .001ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
-/* ===================== Tablet / desktop breakpoints =====================
-   Previously there was only one breakpoint (max-width:480) squeezing things
-   down for phones — nothing widened the layout back up for tablets/laptops,
-   so on a bigger screen it just looked like a narrow phone page floating in
-   empty space instead of a proper site. */
-@media (min-width: 620px) {
-  .wrap { max-width: 620px; }
-  .options { gap: 14px; }
-}
-@media (min-width: 860px) {
-  .app { padding-top: 56px; padding-bottom: 72px; }
-  .wrap { max-width: 840px; }
-  .card { padding: 30px 34px; border-radius: 22px; }
-  .brand { margin-bottom: 32px; }
-  .brand .mark { font-size: 32px; }
-  h2 { font-size: 22px; }
-  .qtext, .q-stage .qtext { font-size: 25px; }
-  .options { grid-template-columns: 1fr 1fr; gap: 16px; }
-  .role-grid { grid-template-columns: 1fr 1fr; }
-  .quiz-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .lobby-players, .buzz-queue { gap: 10px; }
-}
-@media (min-width: 1140px) {
-  .live-stage .wrap { max-width: 960px; }
-  .quiz-grid { grid-template-columns: 1fr 1fr 1fr; }
-}
