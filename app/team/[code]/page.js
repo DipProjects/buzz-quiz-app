@@ -145,7 +145,11 @@ export default function TeamPage({ params }) {
 
       // Wrong → eliminate this team, then re-buzz tied pool or reopen the floor.
       await update(ref(db, `rooms/${code}`), {
-        ...failAnswerPatch({ ...live, lastResult: "wrong", selectedOption: i }, teamId),
+        ...failAnswerPatch(
+          { ...live, lastResult: "wrong", selectedOption: i },
+          teamId,
+          Object.keys(live.teams || {})
+        ),
       });
     } finally {
       // Keep selecting true until phase flips so rapid taps can't slip through.
@@ -281,6 +285,14 @@ export default function TeamPage({ params }) {
                   <div className="status-banner wrong">
                     {state.lastResult === "timeout" ? "Timed out" : "Wrong"} —{" "}
                     {teams[state.buzzedTeam]?.name || "that team"} is out this question
+                    {state.buzzAgainQuote && (
+                      <div className="buzz-again-quote">{state.buzzAgainQuote}</div>
+                    )}
+                  </div>
+                )}
+                {state.lastResult === "allOut" && (
+                  <div className="status-banner tie">
+                    Everyone's out — reopening this question for all teams!
                     {state.buzzAgainQuote && (
                       <div className="buzz-again-quote">{state.buzzAgainQuote}</div>
                     )}
