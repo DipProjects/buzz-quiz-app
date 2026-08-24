@@ -16,6 +16,8 @@ import {
   countItems,
 } from "@/lib/questions";
 import MultiMediaEditor from "@/components/MultiMediaEditor";
+import Brand from "@/components/Brand";
+import LoadingCard from "@/components/LoadingCard";
 
 const emptyForm = { q: "", a: "", b: "", c: "", d: "", correct: 0, media: [] };
 
@@ -163,6 +165,7 @@ export default function QuizEditorPage({ params }) {
     return (
       <div className="app">
         <div className="wrap">
+          <Brand tagline="Edit Quiz" />
           <div className="card">
             <h2>{error}</h2>
             <Link href="/library" className="btn primary" style={{ textDecoration: "none" }}>← My Quizzes</Link>
@@ -176,7 +179,8 @@ export default function QuizEditorPage({ params }) {
     return (
       <div className="app">
         <div className="wrap">
-          <div className="card"><h2>Loading quiz...</h2></div>
+          <Brand tagline="Edit Quiz" />
+          <div className="card"><LoadingCard label="Loading quiz…" /></div>
         </div>
       </div>
     );
@@ -189,10 +193,7 @@ export default function QuizEditorPage({ params }) {
   return (
     <div className="app">
       <div className="wrap">
-        <div className="brand">
-          <span className="mark">Buzz-In Live</span>
-          <span className="sub">Edit Quiz</span>
-        </div>
+        <Brand tagline="Edit Quiz" />
 
         <div className="card">
           <div className="library-head">
