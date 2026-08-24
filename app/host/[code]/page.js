@@ -25,6 +25,7 @@ import {
 import QuestionMedia from "@/components/QuestionMedia";
 import FinalReport from "@/components/FinalReport";
 import CountdownTimer from "@/components/CountdownTimer";
+import BuzzWinnerPopup from "@/components/BuzzWinnerPopup";
 import RoundIntermission from "@/components/RoundIntermission";
 import Brand from "@/components/Brand";
 import LoadingCard from "@/components/LoadingCard";
@@ -269,9 +270,21 @@ export default function HostPage({ params }) {
     update(roomRef, { maxTeams: n });
   }
 
+  // Pop the celebration once per team that wins the buzzer floor (not on every re-render).
+  const winnerTriggerKey =
+    state.phase === "answering" && state.buzzedTeam
+      ? `${state.buzzedTeam}-${state.roundIdx}-${state.idx}`
+      : null;
+
   return (
     <div className={`app live-stage host-stage ${stageMood}`}>
       <div className="stage-glow" aria-hidden />
+      <BuzzWinnerPopup
+        triggerKey={winnerTriggerKey}
+        teamName={teams[state.buzzedTeam]?.name}
+        teamColor={teams[state.buzzedTeam]?.color}
+        subtitle="is answering now"
+      />
       <div className="wrap">
         <Brand tagline="Live Host" />
 
