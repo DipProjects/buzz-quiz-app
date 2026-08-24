@@ -14,6 +14,8 @@ import QuestionMedia from "@/components/QuestionMedia";
 import FinalReport from "@/components/FinalReport";
 import CountdownTimer from "@/components/CountdownTimer";
 import RoundIntermission from "@/components/RoundIntermission";
+import Brand from "@/components/Brand";
+import LoadingCard from "@/components/LoadingCard";
 
 export default function TeamPage({ params }) {
   const code = params.code;
@@ -47,7 +49,8 @@ export default function TeamPage({ params }) {
     return (
       <div className="app live-stage team-stage">
         <div className="wrap">
-          <div className="card funny-card"><h2>Loading…</h2></div>
+          <Brand />
+          <div className="card funny-card"><LoadingCard /></div>
         </div>
       </div>
     );
@@ -57,7 +60,7 @@ export default function TeamPage({ params }) {
     return (
       <div className="app live-stage team-stage">
         <div className="wrap">
-          <div className="brand"><span className="mark">Buzz-In Live</span></div>
+          <Brand />
           <div className="card">
             <h2>Session not found</h2>
             <p className="desc">
