@@ -9,12 +9,11 @@ import {
   normalizeRounds,
   ANSWER_SECS,
 } from "@/lib/questions";
-import { failAnswerPatch, asLineup } from "@/lib/gameFlow";
+import { failAnswerPatch } from "@/lib/gameFlow";
 import QuestionMedia from "@/components/QuestionMedia";
 import FinalReport from "@/components/FinalReport";
 import CountdownTimer from "@/components/CountdownTimer";
 import RoundIntermission from "@/components/RoundIntermission";
-import AnswerLineup from "@/components/AnswerLineup";
 
 export default function TeamPage({ params }) {
   const code = params.code;
@@ -141,7 +140,7 @@ export default function TeamPage({ params }) {
         return;
       }
 
-      // Wrong → backup from same-time pair, or re-buzz tied pool.
+      // Wrong → eliminate this team, then re-buzz tied pool or reopen the floor.
       await update(ref(db, `rooms/${code}`), {
         ...failAnswerPatch({ ...live, lastResult: "wrong", selectedOption: i }, teamId),
       });
@@ -187,8 +186,9 @@ export default function TeamPage({ params }) {
           <div className="card funny-card stage-card">
             <h2>You&apos;re in!</h2>
             <p className="desc">
-              Wait for the host. Same-time buzz → those teams re-buzz. Two buzz together?
-              First answers; if wrong, the other from that pair gets a turn.
+              Wait for the host. Same-time buzz → those teams re-buzz each other. Miss your
+              20s answer window (or answer wrong) and you&apos;re out for that question —
+              buzz in again next time.
             </p>
           </div>
         )}
@@ -339,17 +339,9 @@ export default function TeamPage({ params }) {
                   deadline={state.answerDeadline}
                   label={`Answer · ${ANSWER_SECS}s`}
                 />
-                {asLineup(state.answerLineup).length > 1 && (
-                  <AnswerLineup
-                    lineup={state.answerLineup}
-                    slot={state.answerSlot ?? 0}
-                    teams={teams}
-                  />
-                )}
                 {isAnswering ? (
                   <div className="status-banner correct answer-you">
                     Your turn — pick one answer
-                    {(state.answerSlot ?? 0) > 0 ? " (backup turn)" : ""}
                   </div>
                 ) : (
                   <div
@@ -360,10 +352,6 @@ export default function TeamPage({ params }) {
                     }}
                   >
                     {teams[state.buzzedTeam]?.name || "Team"} is answering
-                    {asLineup(state.answerLineup).length > 1 &&
-                    (state.answerSlot ?? 0) + 1 < asLineup(state.answerLineup).length
-                      ? ` · ${teams[asLineup(state.answerLineup)[(state.answerSlot ?? 0) + 1]]?.name || "Next"} is next`
-                      : ""}
                   </div>
                 )}
               </>
