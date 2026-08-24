@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ref, set, get, child } from "firebase/database";
 import { db } from "@/lib/firebase";
-import { colorForIndex, makeTeamId } from "@/lib/questions";
+import { colorForIndex, makeTeamId, matchAllowedTeamName } from "@/lib/questions";
 import Brand from "@/components/Brand";
 import LoadingCard from "@/components/LoadingCard";
 
@@ -45,9 +45,17 @@ function HomeInner() {
   async function joinGame() {
     setError("");
     const cleanPin = pin.trim().replace(/\s/g, "");
-    const cleanName = teamName.trim();
-    if (!cleanName) { setError("Enter a team name"); return; }
+    const rawName = teamName.trim();
+    if (!rawName) { setError("Enter a team name"); return; }
     if (!cleanPin) { setError("Enter the game PIN"); return; }
+
+    // Only pre-registered team names may join — matched case-insensitively,
+    // then normalized to the official spelling/casing.
+    const cleanName = matchAllowedTeamName(rawName);
+    if (!cleanName) {
+      setError("That's not a registered team name. Check the spelling and try again.");
+      return;
+    }
 
     setBusy(true);
     try {
@@ -134,10 +142,13 @@ function HomeInner() {
             <label>Your Team Name</label>
             <input
               type="text"
-              placeholder="e.g. The Buzzer Beaters"
+              placeholder="e.g. Mavricks"
               value={teamName}
               onChange={(e) => setTeamName(e.target.value)}
             />
+            <p className="small" style={{ marginTop: -6 }}>
+              Use your registered team name — any spelling case works.
+            </p>
             {error && <p className="small" style={{ color: "var(--wrong)" }}>{error}</p>}
             <div className="btn-row">
               <button className="btn ghost" disabled={busy} onClick={() => { setMode(null); setError(""); }}>← Back</button>
