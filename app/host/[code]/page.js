@@ -11,6 +11,7 @@ import {
   asArray,
   ANSWER_SECS,
   TIE_WINDOW_MS,
+  MAX_TEAMS_OPTIONS,
 } from "@/lib/questions";
 import {
   startBuzzingPatch,
@@ -260,6 +261,10 @@ export default function HostPage({ params }) {
     update(roomRef, reopenBuzzPatch());
   }
 
+  function setMaxTeams(n) {
+    update(roomRef, { maxTeams: n });
+  }
+
   return (
     <div className={`app live-stage host-stage ${stageMood}`}>
       <div className="stage-glow" aria-hidden />
@@ -280,9 +285,32 @@ export default function HostPage({ params }) {
               floor reopens or tied teams re-buzz.
             </p>
             <p className="small" style={{ textAlign: "center" }}>
-              Players joined: <b>{teamList.length}</b>
+              Players joined: <b>{teamList.length}{state.maxTeams ? ` / ${state.maxTeams}` : ""}</b>
               {totalQuestions > 0 ? ` · ${totalQuestions} questions ready` : ""}
             </p>
+            <div className="max-teams-picker">
+              <span className="max-teams-label">Team limit</span>
+              <div className="max-teams-opts">
+                <button
+                  type="button"
+                  className={`chip-opt ${!state.maxTeams ? "active" : ""}`}
+                  onClick={() => setMaxTeams(null)}
+                >
+                  No limit
+                </button>
+                {MAX_TEAMS_OPTIONS.map((n) => (
+                  <button
+                    type="button"
+                    key={n}
+                    className={`chip-opt ${state.maxTeams === n ? "active" : ""}`}
+                    disabled={teamList.length > n}
+                    onClick={() => setMaxTeams(n)}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
             {teamList.length > 0 && (
               <ul className="lobby-players">
                 {teamList.map(([tid, t]) => (
