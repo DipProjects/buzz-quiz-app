@@ -177,20 +177,20 @@ export default function TeamPage({ params }) {
           ? "mood-buzz"
           : "";
 
-  // Pop the celebration on this device only when it's the team that just won the floor.
-  const winnerTriggerKey =
-    isAnswering && state.buzzedTeam
-      ? `${state.buzzedTeam}-${state.roundIdx}-${state.idx}`
+  // Pop the celebration on this device only when it's this team's answer that was correct.
+  const correctTriggerKey =
+    state.phase === "reveal" && state.lastResult === "correct" && state.buzzedTeam === teamId
+      ? `${state.buzzedTeam}-${state.roundIdx}-${state.idx}-correct`
       : null;
 
   return (
     <div className={`app live-stage team-stage ${stageMood} ${buzzFlash ? "buzz-hit" : ""}`}>
       <div className="stage-glow" aria-hidden />
       <BuzzWinnerPopup
-        triggerKey={winnerTriggerKey}
+        triggerKey={correctTriggerKey}
         teamName={teamName || teams[teamId]?.name}
         teamColor={myColor}
-        subtitle="Your turn — pick an answer!"
+        subtitle={`+${POINTS_CORRECT} pts — nailed it!`}
       />
       <div className="wrap">
         <div className="team-header live-header" style={{ borderColor: myColor }}>
