@@ -448,6 +448,10 @@ export default function HostPage({ params }) {
                       Timed out — {teams[state.buzzedTeam]?.name || "that team"} is out this question
                     </div>
                   )}
+                  {(state.lastResult === "wrong" || state.lastResult === "timeout") &&
+                    state.buzzAgainQuote && (
+                      <div className="buzz-again-quote">{state.buzzAgainQuote}</div>
+                    )}
                   <div className="status-banner locked live-pulse">
                     Floor open — watching for buzzes
                     {buzzHits.length > 0 ? ` · ${buzzHits.length} in` : ""}
