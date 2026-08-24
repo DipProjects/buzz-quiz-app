@@ -265,21 +265,71 @@ input[type=text]:focus, select:focus, textarea:focus { outline: none; border-col
   75% { transform: rotate(1deg); }
 }
 .timer-label { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); font-weight: 800; }
+
+/* Circular ring timer */
+.timer-ring-wrap {
+  position: relative; width: 150px; height: 150px; margin: 10px auto 4px;
+  display: flex; align-items: center; justify-content: center;
+}
+.timer-ring { display: block; }
+.timer-ring-track { stroke: var(--panel-2); }
+.timer-ring-progress {
+  stroke: var(--accent);
+  transition: stroke-dashoffset .2s linear, stroke .25s ease;
+}
+.timer-card.answer .timer-ring-progress { stroke: var(--warn); }
+.timer-card.urgent .timer-ring-progress { stroke: var(--wrong); }
+.timer-ring-center {
+  position: absolute; inset: 0; display: flex; align-items: baseline; justify-content: center;
+  animation: popIn .25s cubic-bezier(.2, 1.4, .4, 1) both;
+}
 .timer-digits {
-  font-family: var(--font-display); font-size: 54px; font-weight: 800; line-height: 1; color: var(--accent); margin: 6px 0;
+  font-family: var(--font-display); font-size: 48px; font-weight: 800; line-height: 1; color: var(--accent);
   font-variant-numeric: tabular-nums;
 }
 .timer-card.answer .timer-digits { color: var(--warn); }
 .timer-card.urgent .timer-digits { color: var(--wrong); }
-.timer-unit { font-size: 21px; margin-left: 2px; font-weight: 700; }
-.timer-fun { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 10px; }
-.timer-bar { height: 9px; border-radius: var(--r-full); background: var(--panel-2); overflow: hidden; }
-.timer-bar i {
-  display: block; height: 100%; border-radius: var(--r-full);
-  background: linear-gradient(90deg, var(--accent-2), var(--accent)); transition: width .2s linear;
+.timer-unit { font-size: 19px; margin-left: 2px; font-weight: 700; color: var(--dim); }
+.timer-fun { font-size: 13px; font-weight: 700; color: var(--text); margin-top: 2px; }
+
+/* =========================================================
+   Buzz winner celebration popup
+   ========================================================= */
+.winner-popup-overlay {
+  position: fixed; inset: 0; z-index: 999; display: flex; align-items: center; justify-content: center;
+  background: rgba(24, 6, 58, .45); backdrop-filter: blur(2px);
+  animation: winnerFade .2s ease both; padding: 20px;
 }
-.timer-card.answer .timer-bar i { background: linear-gradient(90deg, #fbbf24, #d89e00); }
-.timer-card.urgent .timer-bar i { background: linear-gradient(90deg, #f87171, #e21b3c); }
+@keyframes winnerFade { from { opacity: 0; } to { opacity: 1; } }
+.winner-popup-card {
+  position: relative; text-align: center; background: #fff; border-radius: var(--r-xl);
+  border: 3px solid var(--accent); box-shadow: var(--shadow-card-lg);
+  padding: 30px 34px 26px; max-width: 320px; width: 100%;
+  animation: winnerPop .45s cubic-bezier(.2, 1.4, .4, 1) both;
+}
+@keyframes winnerPop {
+  0% { opacity: 0; transform: scale(.6) rotate(-4deg); }
+  60% { opacity: 1; transform: scale(1.06) rotate(1deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+.winner-popup-burst {
+  font-size: 30px; margin-bottom: 6px; display: flex; justify-content: center; gap: 10px;
+}
+.winner-popup-burst span { display: inline-block; animation: winnerBurst .9s ease-in-out infinite; }
+.winner-popup-burst span:nth-child(2) { animation-delay: .15s; }
+.winner-popup-burst span:nth-child(3) { animation-delay: .3s; }
+@keyframes winnerBurst {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  50% { transform: translateY(-8px) rotate(-8deg); }
+}
+.winner-popup-title {
+  font-size: 12px; letter-spacing: 2px; text-transform: uppercase; font-weight: 800; color: var(--dim);
+}
+.winner-popup-name {
+  font-family: var(--font-display); font-size: 30px; font-weight: 900; line-height: 1.15; margin: 6px 0 2px;
+  word-break: break-word;
+}
+.winner-popup-sub { font-size: 14px; font-weight: 700; color: var(--dim); }
 
 .buzz-queue { list-style: none; padding: 0; margin: 0 0 14px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 .buzz-queue li {
