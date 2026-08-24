@@ -20,6 +20,10 @@ export default function LibraryPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (sessionStorage.getItem("buzzquiz_host_authed") !== "1") {
+      router.replace("/");
+      return;
+    }
     const id = getHostId();
     setHostId(id);
     return watchQuizzes(id, setQuizzes);
