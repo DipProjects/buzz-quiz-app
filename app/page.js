@@ -48,8 +48,24 @@ function HomeInner() {
       }
       const roomVal = roomSnap.val();
       const existingTeams = roomVal.teams || {};
+      const existingList = Object.values(existingTeams);
+
+      if (roomVal.maxTeams && existingList.length >= roomVal.maxTeams) {
+        setError(`Room is full (${existingList.length}/${roomVal.maxTeams}). Ask the host to raise the limit.`);
+        setBusy(false);
+        return;
+      }
+      const nameTaken = existingList.some(
+        (t) => (t?.name || "").trim().toLowerCase() === cleanName.toLowerCase()
+      );
+      if (nameTaken) {
+        setError("That team name is already taken. Pick a different one.");
+        setBusy(false);
+        return;
+      }
+
       const teamId = makeTeamId();
-      const color = colorForIndex(Object.keys(existingTeams).length);
+      const color = colorForIndex(existingList.length);
 
       await set(ref(db, `rooms/${cleanPin}/teams/${teamId}`), {
         name: cleanName,
