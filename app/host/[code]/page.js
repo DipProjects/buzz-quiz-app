@@ -26,6 +26,8 @@ import QuestionMedia from "@/components/QuestionMedia";
 import FinalReport from "@/components/FinalReport";
 import CountdownTimer from "@/components/CountdownTimer";
 import RoundIntermission from "@/components/RoundIntermission";
+import Brand from "@/components/Brand";
+import LoadingCard from "@/components/LoadingCard";
 
 export default function HostPage({ params }) {
   const code = params.code;
@@ -137,7 +139,8 @@ export default function HostPage({ params }) {
     return (
       <div className="app live-stage host-stage">
         <div className="wrap">
-          <div className="card funny-card"><h2>Loading game…</h2></div>
+          <Brand tagline="Live Host" />
+          <div className="card funny-card"><LoadingCard label="Loading game…" /></div>
         </div>
       </div>
     );
@@ -147,10 +150,7 @@ export default function HostPage({ params }) {
     return (
       <div className="app live-stage host-stage">
         <div className="wrap">
-          <div className="brand">
-            <span className="mark">Buzz-In Live</span>
-            <span className="sub">Live Host</span>
-          </div>
+          <Brand tagline="Live Host" />
           <div className="card">
             <h2>Game not found</h2>
             <p className="desc">PIN <b>{code}</b> was not found. Host again from My Quizzes.</p>
@@ -269,10 +269,7 @@ export default function HostPage({ params }) {
     <div className={`app live-stage host-stage ${stageMood}`}>
       <div className="stage-glow" aria-hidden />
       <div className="wrap">
-        <div className="brand">
-          <span className="mark">Buzz-In Live</span>
-          <span className="sub">Live Host</span>
-        </div>
+        <Brand tagline="Live Host" />
 
         {isLobby && (
           <div className="card lobby-card funny-card stage-card">
