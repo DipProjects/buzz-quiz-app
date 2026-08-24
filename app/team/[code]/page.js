@@ -13,6 +13,7 @@ import { failAnswerPatch } from "@/lib/gameFlow";
 import QuestionMedia from "@/components/QuestionMedia";
 import FinalReport from "@/components/FinalReport";
 import CountdownTimer from "@/components/CountdownTimer";
+import BuzzWinnerPopup from "@/components/BuzzWinnerPopup";
 import RoundIntermission from "@/components/RoundIntermission";
 import Brand from "@/components/Brand";
 import LoadingCard from "@/components/LoadingCard";
@@ -176,9 +177,21 @@ export default function TeamPage({ params }) {
           ? "mood-buzz"
           : "";
 
+  // Pop the celebration on this device only when it's the team that just won the floor.
+  const winnerTriggerKey =
+    isAnswering && state.buzzedTeam
+      ? `${state.buzzedTeam}-${state.roundIdx}-${state.idx}`
+      : null;
+
   return (
     <div className={`app live-stage team-stage ${stageMood} ${buzzFlash ? "buzz-hit" : ""}`}>
       <div className="stage-glow" aria-hidden />
+      <BuzzWinnerPopup
+        triggerKey={winnerTriggerKey}
+        teamName={teamName || teams[teamId]?.name}
+        teamColor={myColor}
+        subtitle="Your turn — pick an answer!"
+      />
       <div className="wrap">
         <div className="team-header live-header" style={{ borderColor: myColor }}>
           <span className="dot" style={{ background: myColor }} />
