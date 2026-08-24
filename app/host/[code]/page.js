@@ -270,20 +270,20 @@ export default function HostPage({ params }) {
     update(roomRef, { maxTeams: n });
   }
 
-  // Pop the celebration once per team that wins the buzzer floor (not on every re-render).
-  const winnerTriggerKey =
-    state.phase === "answering" && state.buzzedTeam
-      ? `${state.buzzedTeam}-${state.roundIdx}-${state.idx}`
+  // Pop the celebration once per correct answer (not on every re-render while phase stays "reveal").
+  const correctTriggerKey =
+    state.phase === "reveal" && state.lastResult === "correct" && state.buzzedTeam
+      ? `${state.buzzedTeam}-${state.roundIdx}-${state.idx}-correct`
       : null;
 
   return (
     <div className={`app live-stage host-stage ${stageMood}`}>
       <div className="stage-glow" aria-hidden />
       <BuzzWinnerPopup
-        triggerKey={winnerTriggerKey}
+        triggerKey={correctTriggerKey}
         teamName={teams[state.buzzedTeam]?.name}
         teamColor={teams[state.buzzedTeam]?.color}
-        subtitle="is answering now"
+        subtitle={`+${POINTS_CORRECT} pts`}
       />
       <div className="wrap">
         <Brand tagline="Live Host" />
