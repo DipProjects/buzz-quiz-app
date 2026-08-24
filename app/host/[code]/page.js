@@ -108,7 +108,11 @@ export default function HostPage({ params }) {
           const live2 = snap2.val();
           if (!live2 || live2.phase !== "answering") return;
           await update(ref(db, `rooms/${code}`), {
-            ...failAnswerPatch({ ...live2, lastResult: "timeout" }, live2.buzzedTeam),
+            ...failAnswerPatch(
+              { ...live2, lastResult: "timeout" },
+              live2.buzzedTeam,
+              Object.keys(live2.teams || {})
+            ),
             selectedOption: null,
           });
         } finally {
@@ -448,7 +452,14 @@ export default function HostPage({ params }) {
                       Timed out — {teams[state.buzzedTeam]?.name || "that team"} is out this question
                     </div>
                   )}
-                  {(state.lastResult === "wrong" || state.lastResult === "timeout") &&
+                  {state.lastResult === "allOut" && (
+                    <div className="status-banner tie">
+                      Everyone's out — reopening this question for all teams!
+                    </div>
+                  )}
+                  {(state.lastResult === "wrong" ||
+                    state.lastResult === "timeout" ||
+                    state.lastResult === "allOut") &&
                     state.buzzAgainQuote && (
                       <div className="buzz-again-quote">{state.buzzAgainQuote}</div>
                     )}
