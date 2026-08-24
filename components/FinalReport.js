@@ -1,13 +1,9 @@
 "use client";
-import { getStandings, getWinnerRunnerUp } from "@/lib/questions";
-
-function names(rows) {
-  return rows.map((r) => r.name).join(" & ");
-}
+import { getStandings } from "@/lib/questions";
+import Podium from "@/components/Podium";
 
 export default function FinalReport({ scores, teams, highlightTeamId }) {
   const standings = getStandings(scores, teams);
-  const { winners, runnersUp } = getWinnerRunnerUp(standings);
 
   if (standings.length === 0) {
     return <p className="small">No teams joined.</p>;
@@ -15,22 +11,7 @@ export default function FinalReport({ scores, teams, highlightTeamId }) {
 
   return (
     <div className="report">
-      <div className="podium">
-        <div className="podium-spot winner">
-          <div className="podium-medal">🏆</div>
-          <div className="podium-label">Winner{winners.length > 1 ? "s" : ""}</div>
-          <div className="podium-name">{names(winners)}</div>
-          <div className="podium-pts">{winners[0]?.points ?? 0} pts</div>
-        </div>
-        {runnersUp.length > 0 && (
-          <div className="podium-spot runner">
-            <div className="podium-medal">🥈</div>
-            <div className="podium-label">Runner-up{runnersUp.length > 1 ? "s" : ""}</div>
-            <div className="podium-name">{names(runnersUp)}</div>
-            <div className="podium-pts">{runnersUp[0]?.points ?? 0} pts</div>
-          </div>
-        )}
-      </div>
+      <Podium scores={scores} teams={teams} highlightTeamId={highlightTeamId} />
 
       <ul className="leaderboard report-list">
         {standings.map((row) => (
